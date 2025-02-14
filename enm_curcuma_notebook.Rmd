@@ -1,0 +1,199 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+First, from the 19 climatic variables of chelsa (30 seconds), I crop the extension to Asia (62.86653, 113.9249, 1.566527, 37.66653) (xmin, xmax, ymin, ymax). See previous script of how I did this.
+
+However, this is still a super large file. Let's resample the bio files in a 10-fold order. dimensions : 4332, 6127, 26542164  (nrow, ncol, ncell).
+I converted to the ascii format because it's the only format Maxent accepts.
+
+```{r}
+library(raster)
+
+#Asia file names
+asia_tifs = Sys.glob('asia_bio_*.tif')
+
+#Loop to read the files as rasters, resample the original rasters and then write
+#them as new raster files in ascii format
+
+for(i in 1:length(asia_tifs)){
+ bio_r = raster(asia_tifs[i])
+ bio_aggr = aggregate(bio_r, fact=10)
+ writeRaster(bio_aggr, filename=paste0(names(bio_r), '_resampled.asc'), format = 'ascii')
+}
+
+```
+
+With these new resampled raster, let's conduct some correlation analyses to remove high-correlated variables.
+
+
+```{r}
+library(caret)
+library(corrplot)
+
+#Read the new resampled files
+asia_ascs = Sys.glob('asia_*resampled.asc')
+
+#stack them as rasters
+asia_stack = stack(asia_ascs)
+
+#extract the values of these raster files
+asia_values = values(asia_stack)
+
+#remove NAs
+asia_values = na.omit(asia_values)
+
+#Create a correlation matrix
+asia_corr = cor(asia_values)
+
+#setting a threshold of 70%
+cor_threshold = 0.7
+
+#Check which one of the variables are highly correlated
+highly_correlated = as.vector(findCorrelation(asia_corr, cutoff = cor_threshold))
+highly_correlated_names = names(asia_stack)[highly_correlated]
+
+#and which are not that correlated (i.e., those that we are most interested)
+less_correlated = which(names(asia_stack) %in% setdiff(names(asia_stack), highly_correlated_names))
+
+less_correlated_names = setdiff(names(asia_stack), highly_correlated_names)
+
+corrplot(asia_corr, type = "lower", diag = F, tl.srt = 45, mar = c(3, 0.5, 2, 1),
+         title = "Correlation between variables of CHELSA bioclimatic variables")
+
+
+
+```
+
+So, we'll keep only 8 variables:
+
+[1] "asia_bio_10_resampled" "asia_bio_13_resampled" "asia_bio_14_resampled"
+[4] "asia_bio_15_resampled" "asia_bio_18_resampled" "asia_bio_19_resampled"
+[7] "asia_bio_2_resampled"  "asia_bio_3_resampled" 
+
+Now, let's conduct some Niche Modelling using Maxent.
+I'll conduct these niche analyses per lineage (Curcuma, Curcuma I, Curcuma II,
+Ecomata, Hitcheniopsis, Pierrana and Roscoeana).
+
+After conducting the Niche MOdelling using Maxent, we'll extract the values of the 8 variables following the the shortest distance to the top-left corner (0,1) in ROC plot (check the html files for the AUC value).
+```{r}
+library(raster)
+
+#the less correlated variables
+asia_eight_stack = stack(paste0('./env_variables/', less_correlated_names, '.asc'))
+
+#our maxent niche modelling
+cs_model = raster('./maxent_output/curcuma_cs.asc')
+c1_model = raster('./maxent_output/curcuma_cs1.asc')
+c2_model = raster('./maxent_output/curcuma_cs2.asc')
+e_model = raster('./maxent_output/curcuma_es.asc')
+h_model = raster('./maxent_output/curcuma_hs.asc')
+p_model = raster('./maxent_output/curcuma_ps.asc')
+r_model = raster('./maxent_output/curcuma_rs.asc')
+
+#get the pixels where the niche analysis was more or equal than the top-left cornern in ROC plot.
+cs_model_89 = cs_model
+c1_model_88 = c1_model
+c2_model_92 = c2_model
+e_model_94 = e_model
+h_model_94 = h_model
+p_model_94 = p_model
+r_model_94 = r_model
+
+cs_model_89[] = ifelse(values(cs_model) >= 0.89, 1, NA)
+c1_model_88[] = ifelse(values(c1_model) >= 0.88, 1, NA)
+c2_model_92[] = ifelse(values(c2_model) >= 0.92, 1, NA)
+e_model_94[] = ifelse(values(e_model) >= 0.94, 1, NA)
+h_model_94[] = ifelse(values(h_model) >= 0.94, 1, NA)
+p_model_94[] = ifelse(values(p_model) >= 0.94, 1, NA)
+r_model_94[] = ifelse(values(r_model) >= 0.94, 1, NA)
+
+#select the values from bioclimatic variables that matches where the niche 
+#modeling was >= the top-left cornern in ROC plot.
+
+asia_masked_by_cs_model = mask(asia_eight_stack, cs_model_89)
+asia_masked_by_cs_model_df = as.data.frame(rasterToPoints(asia_masked_by_cs_model))
+
+asia_masked_by_c1_model = mask(asia_eight_stack, c1_model_88)
+asia_masked_by_c1_model_df = as.data.frame(rasterToPoints(asia_masked_by_c1_model))
+
+asia_masked_by_c2_model = mask(asia_eight_stack, c2_model_92)
+asia_masked_by_c2_model_df = as.data.frame(rasterToPoints(asia_masked_by_c2_model))
+
+asia_masked_by_e_model = mask(asia_eight_stack, e_model_94)
+asia_masked_by_e_model_df = as.data.frame(rasterToPoints(asia_masked_by_e_model))
+
+asia_masked_by_h_model = mask(asia_eight_stack, h_model_94)
+asia_masked_by_h_model_df = as.data.frame(rasterToPoints(asia_masked_by_h_model))
+
+asia_masked_by_p_model = mask(asia_eight_stack, p_model_94)
+asia_masked_by_p_model_df = as.data.frame(rasterToPoints(asia_masked_by_p_model))
+
+asia_masked_by_r_model = mask(asia_eight_stack, r_model_94)
+asia_masked_by_r_model_df = as.data.frame(rasterToPoints(asia_masked_by_r_model))
+
+#create a new column (for ecospat analysis) setting one for where the niche is 
+# >= the top-left cornern in ROC plot.
+asia_masked_by_cs_model_df$species_occ = 1
+asia_masked_by_c1_model_df$species_occ = 1
+asia_masked_by_c2_model_df$species_occ = 1
+asia_masked_by_e_model_df$species_occ = 1
+asia_masked_by_h_model_df$species_occ = 1
+asia_masked_by_p_model_df$species_occ = 1
+asia_masked_by_r_model_df$species_occ = 1
+
+#Now, select the values from bioclimatic variables that doesn't match to our
+#threshould (>= the top-left cornern in ROC plot)
+asia_masked_by_cs_invert = mask(asia_eight_stack, cs_model_89, inverse = TRUE)
+asia_masked_by_c1_invert = mask(asia_eight_stack, c1_model_88, inverse = TRUE)
+asia_masked_by_c2_invert = mask(asia_eight_stack, c2_model_92, inverse = TRUE)
+asia_masked_by_e_invert = mask(asia_eight_stack, e_model_94, inverse = TRUE)
+asia_masked_by_h_invert = mask(asia_eight_stack, h_model_94, inverse = TRUE)
+asia_masked_by_p_invert = mask(asia_eight_stack, p_model_94, inverse = TRUE)
+asia_masked_by_r_invert = mask(asia_eight_stack, r_model_94, inverse = TRUE)
+
+
+asia_masked_by_cs_invert_df = as.data.frame(rasterToPoints(asia_masked_by_cs_invert))
+
+asia_masked_by_c1_invert_df = as.data.frame(rasterToPoints(asia_masked_by_c1_invert))
+
+asia_masked_by_c2_invert_df = as.data.frame(rasterToPoints(asia_masked_by_c2_invert))
+
+asia_masked_by_e_invert_df = as.data.frame(rasterToPoints(asia_masked_by_e_invert))
+
+asia_masked_by_h_invert_df = as.data.frame(rasterToPoints(asia_masked_by_h_invert))
+
+asia_masked_by_p_invert_df = as.data.frame(rasterToPoints(asia_masked_by_p_invert))
+
+asia_masked_by_r_invert_df = as.data.frame(rasterToPoints(asia_masked_by_r_invert))
+
+#create a new column (for ecospat analysis) setting zero for where the niche is 
+# < the top-left cornern in ROC plot.
+asia_masked_by_cs_invert_df$species_occ = 0
+asia_masked_by_c1_invert_df$species_occ = 0
+asia_masked_by_c2_invert_df$species_occ = 0
+asia_masked_by_e_invert_df$species_occ = 0
+asia_masked_by_h_invert_df$species_occ = 0
+asia_masked_by_p_invert_df$species_occ = 0
+asia_masked_by_r_invert_df$species_occ = 0
+
+#bind together the two dfs (where is >= the top-left cornern in ROC plot and where is < the top-left cornern in ROC plot)
+cs_to_ecospat = rbind(asia_masked_by_cs_model_df, asia_masked_by_cs_invert_df)
+c1_to_ecospat = rbind(asia_masked_by_c1_model_df, asia_masked_by_c1_invert_df)
+c2_to_ecospat = rbind(asia_masked_by_c2_model_df, asia_masked_by_c2_invert_df)
+e_to_ecospat = rbind(asia_masked_by_e_model_df, asia_masked_by_e_invert_df)
+h_to_ecospat = rbind(asia_masked_by_h_model_df, asia_masked_by_h_invert_df)
+p_to_ecospat = rbind(asia_masked_by_p_model_df, asia_masked_by_p_invert_df)
+r_to_ecospat = rbind(asia_masked_by_r_model_df, asia_masked_by_r_invert_df)
+
+write.csv(cs_to_ecospat, 'cs_to_ecospat.csv', row.names = F)
+write.csv(c1_to_ecospat, 'c1_to_ecospat.csv', row.names = F)
+write.csv(c2_to_ecospat, 'c2_to_ecospat.csv', row.names = F)
+write.csv(e_to_ecospat, 'e_to_ecospat.csv', row.names = F)
+write.csv(h_to_ecospat, 'h_to_ecospat.csv', row.names = F)
+write.csv(p_to_ecospat, 'p_to_ecospat.csv', row.names = F)
+write.csv(r_to_ecospat, 'r_to_ecospat.csv', row.names = F)
+```
+
+
