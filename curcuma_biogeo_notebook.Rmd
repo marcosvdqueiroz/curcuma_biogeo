@@ -1,0 +1,2613 @@
+---
+title: "curcuma_biogeo_notebook"
+author: "MVDQ"
+date: "12/8/2022"
+output: html_document
+---
+
+# 1. Creating a single file with all trees
+
+Our gene trees are available in individual files. The first thing that we need to do is to put all trees in a single file.
+
+
+```{r setup, include=FALSE, warning=FALSE}
+#Set our working directory
+setwd("/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees")
+
+#Load our libraries
+library("ape")
+library("phangorn")
+library("stringr")
+library("phytools")
+library("readr")
+library("apex")
+library("phylotools")
+library("msa")
+library("seqinr")
+library("filesstrings")
+library("BioGeoBEARS")
+library("dplyr")
+
+```
+
+
+```{r, warning=FALSE}
+#List all tree from the folder
+## List only trees
+setwd('0_trees/all_contrees/' )
+trees <- Sys.glob('*.contree')
+
+#For loop to get all trees and save them in a single file
+#for each file tree
+for(i in 1:length(trees)){
+  
+  #get the name of the file, and remove the extensions (i.e., the gene name)
+  tree_name <- str_replace(trees[i], '\\.fas.contree', '')
+  
+  #read the tree as a text file
+  my_tree <- read_file(trees[i])
+  
+  #paste the name of the tree and the tree itself to a variable
+  name_and_tree <- paste0(tree_name, my_tree)
+  
+  #write (append) the tree name and the tree itself to a file
+  write(name_and_tree, file = 'all_trees.txt', append = TRUE)
+}
+
+file.move('all_trees.txt', '..', overwrite = TRUE)
+
+```
+Since we are not interested in some samples, let's removed them before continue with the other steps.
+
+```{r, warning=FALSE}
+#import the tree
+setwd('0_trees/')
+all_trees <- read.tree(file = 'all_trees.txt')
+
+#drop samples:
+#'Curcuma-sp_Z54', Curcuma-sp_S662, Curcuma-manggaAndamans_C005
+
+all_trees <- phytools::drop.tip.multiPhylo(all_trees, tip = c('Curcuma-sp_Z54', 'Curcuma-sp_S662', 'Curcuma-manggaAndamans_C005'))
+write.tree(all_trees, file = 'all_trees.txt', tree.names = TRUE)
+```
+
+#2. Selecting monophyletic trees
+
+Now we'll select all trees where our hypothetical parental clades are monophyletic.
+
+## Parental 1 - Curcuma, Vamana and Roscoeana (c_v_r)
+
+```{r, warning = FALSE}
+setwd('0_trees/parental_c_v_r/')
+#Parental tree 1 - all trees where curcuma, vamana and roscoeana are monophyletic
+tips_c_v_r <- c('Curcuma-mangga_S669', 'Curcuma-mangga_S670', 'Curcuma-amada_S673', 'Curcuma-amada_S580', 'Curcuma-sp_S659', 'Curcuma-sp_S660', 'Curcuma-sulphurea_S576', 'Curcuma-plicata_C343', 'Curcuma-mangga_S677', 'Curcuma-amada_S577', 'Curcuma-amada_S672', 'Curcuma-mangga_S581', 'Curcuma-amada_S671', 'Curcuma-aromatica_S547', 'Curcuma-aromatica_S561', 'Curcuma-aromatica_S528', 'Curcuma-picta_S514', 'Curcuma-rubescens_S661', 'Curcuma-repens_S516', 'Curcuma-rubescens_S578', 'Curcuma-montana_S544', 'Curcuma-montana_S530', 'Curcuma-montana_S531', 'Curcuma-viridiflora_S572', 'Curcuma-prakasha_S560', 'Curcuma-petiolata_S664', 'Curcuma-sp_S666', 'Curcuma-prakasha_S527', 'Curcuma-prakasha_S511', 'Curcuma-prakasha_S512', 'Curcuma-sp_S563', 'Curcuma-sp_C342', 'Curcuma-plicata_C295', 'Curcuma-plicata_S204', 'Curcuma-plicata_S657', 'Curcuma-rubrobracteata_S579', 'Curcuma-rubrobracteata_S559', 'Curcuma-sp_S668', 'Curcuma-sp_S665', 'Curcuma-sp_S667', 'Curcuma-aurantiaca_S675', 'Curcuma-reclinata_S678', 'Curcuma-sulcata_S606', 'Curcuma-inodora_S602', 'Curcuma-decipiens_S600', 'Curcuma-decipiens_S601', 'Curcuma-pseudomontana_S526', 'Curcuma-pseudomomtana_S605', 'Curcuma-caulina_S540', 'Curcuma-cannanorensis_S164', 'Curcuma-karnatakensis_S676', 'Curcuma-mutabilis_S604', 'Curcuma-bhatii_S165', 'Curcuma-scaposa_S541', 'Curcuma-angustifolia_S582', 'Curcuma-angustifolia_S575', 'Curcuma-angustifolia_S529', 'Curcuma-angustifolia_S674', 'Curcuma-angustifolia_S546', 'Curcuma-candida_S539', 'Curcuma-candida_S156', 'Curcuma-candida_C346', 'Curcuma-vamana_S167', 'Curcuma-roscoeana_S656', 'Curcuma-roscoeana_S593', 'Curcuma-roscoeana_S163', 'Curcuma-roscoeana_C400', 'Curcuma-myanmarensis_S168') 
+
+#for each tree
+for(t in 1:length(all_trees)){
+  
+    #check if that tree is monophyletic, following our tip names
+    #the try here is to avoid any break in the loop, since the is.monophyletic can stop if any error appears
+
+  a <- try(is.monophyletic(phy=all_trees[[t]], tips = tips_c_v_r))
+  #if our tree is monophyletic
+  
+  if(a == TRUE){
+    #get the tree name
+    tree_name <- names(all_trees[t])
+    
+    #get the tree
+    my_tree <- all_trees[[t]]
+    
+    #write a file with all tree names (i.e., the gene name)
+    write(tree_name, file = 'gene_names_c_v_r.txt', append = TRUE)
+    
+    #write a file with all monophyletic trees, including their names
+    write.tree(phy = my_tree, file = 'parental_c_v_r.nwk', append = TRUE, tree.names = tree_name)
+    
+  }
+}
+
+
+```
+
+## Parental 2 - Vamana, Roscoeana and Hitcheniopsis (v_r_h)
+
+```{r, warning=FALSE}
+setwd('0_trees/parental_v_r_h/')
+
+tips_v_r_h <- c('Curcuma-thorelii_S590', 'Curcuma-thorellii_C250', 'Curcuma-parviflora_S592', 'Curcuma-pygmaea_Z48', 'Curcuma-gracillima_S1', 'Curcuma-prasina_Z1145', 'Curcuma-harmandii_C199', 'Curcuma-rhabdota_C334', 'Curcuma-rhabdota_S599', 'Curcuma-sparganiifolia_Z1140', 'Curcuma-sparganifolia_S594', 'Curcuma-alismatifolia_S591', 'Curcuma-alismatifolia_S158', 'Curcuma-involucrata_S205', 'Curcuma-campanulata_S598', 'Curcuma-leonidii_Z1146', 'Curcuma-parviflora_S159', 'Curcuma-parviflora_S597', 'Curcuma-parviflora_S595', 'Curcuma-vamana_S167', 'Curcuma-roscoeana_S656', 'Curcuma-roscoeana_S593', 'Curcuma-roscoeana_S163', 'Curcuma-roscoeana_C400', 'Curcuma-myanmarensis_S168')
+
+for(t in 1:length(all_trees)){
+  a <- try(is.monophyletic(phy=all_trees[[t]], tips = tips_v_r_h))
+  if(a == TRUE){
+    tree_name <- names(all_trees[t])
+    my_tree <- all_trees[[t]]
+    write(tree_name, file = 'gene_names_v_r_h.txt', append = TRUE)
+    write.tree(phy = my_tree, file = 'parental_v_r_h.nwk', append = TRUE, tree.names = tree_name)
+
+  }
+}
+```
+
+#3. Filtering the alignment files
+
+To easily access them, let's copy the alignment files from our selected trees. We need also to remove the undesired samples, as we did in our trees.
+
+```{r, warning=FALSE, echo=FALSE}
+setwd('0_trees/')
+
+#Reading all gene tree names selected
+
+gene_names_c_v_r <- read.table('./parental_c_v_r/gene_names_c_v_r.txt')
+gene_names_v_r_h <- read.table('./parental_v_r_h/gene_names_v_r_h.txt')
+
+#Inserting the path name of our gene names
+gene_names_c_v_r <- paste0('../0_alignments/all_genes/', gene_names_c_v_r$V1, '.fas')
+gene_names_v_r_h <- paste0('../0_alignments/all_genes/', gene_names_v_r_h$V1, '.fas')
+
+#Copying the files to a new directory
+c_v_r_directory <- '../0_alignments/parental_alignments/parental_c_v_r/'
+file.copy(gene_names_c_v_r, c_v_r_directory)
+c_v_r_files <- list.files(c_v_r_directory, full.names = TRUE)
+
+v_r_h_directory <- '../0_alignments/parental_alignments/parental_v_r_h/'
+file.copy(gene_names_v_r_h, v_r_h_directory)
+v_r_h_files <- list.files(v_r_h_directory, full.names = TRUE)
+
+#As we did in our trees, let's also remove the undesired samples from our alignments
+
+undesired <- c('Curcuma-sp_Z54', 'Curcuma-sp_S662', 'Curcuma-manggaAndamans_C005')
+
+for(g in 1:length(c_v_r_files)){
+  rm.sequence.fasta(infile = c_v_r_files[g],
+                    outfile = c_v_r_files[g],
+                    to.rm = undesired)
+}
+
+for(g in 1:length(v_r_h_files)){
+  rm.sequence.fasta(infile = v_r_h_files[g],
+                    outfile = v_r_h_files[g],
+                    to.rm = undesired)
+}
+
+```
+
+#4. Concatenation
+To build our Maximum Likelihood tree, we need a single fasta file with all our gene alignments concatenated.
+
+```{r, warning=FALSE}
+setwd('0_alignments/')
+
+#Creating a dataframe with all gene names
+gene_names_c_v_r <- as.data.frame(list.files('./parental_alignments/parental_c_v_r/'))
+colnames(gene_names_c_v_r) <- 'cvr'
+gene_names_c_v_r <- paste0('./parental_alignments/parental_c_v_r/', gene_names_c_v_r$cvr)
+
+gene_names_v_r_h <- as.data.frame(list.files('./parental_alignments/parental_v_r_h/'))
+colnames(gene_names_v_r_h) <- 'vrh'
+gene_names_v_r_h <- paste0('./parental_alignments/parental_v_r_h/', gene_names_v_r_h$vrh)
+
+#read the files as multiFASTA
+gene_c_v_r <- read.multiFASTA(gene_names_c_v_r)
+gene_v_r_h <- read.multiFASTA(gene_names_v_r_h)
+
+#concatenate them
+gene_c_v_r <- concatenate(gene_c_v_r)
+gene_v_r_h <- concatenate(gene_v_r_h)
+
+#write the concatenated files
+write.FASTA(gene_c_v_r, file = './parental_alignments/parental_c_v_r/parental_c_v_r_concat.fasta')
+write.FASTA(gene_v_r_h, file = './parental_alignments/parental_v_r_h/parental_v_r_h_concat.fasta')
+
+
+```
+
+#5. Maximum Likelihood trees
+
+Maximum Likelihood trees were created using MEGA, with the default parameters.
+
+To do so, I used the parental_x_y_concat.fasta files
+
+Phylogeny > Construct/Test Maximum Likelihood Tree...
+
+The Maximum Likelihood trees were exported in Newick format as parental_x_y_ML.nwk
+
+#6. Dating
+
+For the dated tree, I used the RelTime-ML function in MEGA (see the Mello, 2018 paper from Molecular Biology and Evolution). It requires two inputs:
+
+i) the concatenated alignment ('parental_x_y_concat.fasta')
+ii) the ML tree ('parental_x_y_ML.nwk')
+
+For this analysis, I used the following parameters:
+
+- (Specify outgroup > Select taxa) Globba was used as an outgroup
+- (Calibrate nodes > Add Constraints > Add a new calibration point) Camptandra ovata S120 was used as the constrain point between Curcuma-vitellina S3, with a normal distribution of mean 13, and 1.5 of standard deviation.
+- The default Set Options were used
+
+The outputs are Newick trees - parental_x_y_ML_calibrated.nwk
+
+
+### 2024 ###
+
+Here, I'm using the dating time from Böhmová et al. (2023). With a normal constrain of mean 75 Mya and STD 5 Mya and the three provided by Tomas (ExaML), using a concatened alignment of several Zingiberaceae and Costacceae species, and Canna as an outgroup.
+
+The default set options were used.
+
+The output is the file ExaML_calibrated_MEGA.nexus
+
+The split between Camptandra and Curcuma is 20.64
+The crown node of Curcuma is 14.66 Mya.
+
+Let's use this time for calibrate our Curcuma tree.
+
+But before doing it, let's check all tip names, if they are following the updated modification names (updates_biogeo.xlsx, a file from January 25th 2024).
+
+### 2024 ###
+Following the updates_biogeo file, this is the list of all tips to keep
+
+```{r}
+to_keep_list <- c("Curcuma-sp_S660", "Curcuma-sulphurea_S576", "Curcuma-mangga_S669", "Curcuma-mangga_S677", "Curcuma-rubescens_S661", "Curcuma-aromatica_S547", "Curcuma-prakasha_S527", "Curcuma-picta_S514", "Curcuma-sp_S563", "Curcuma-petiolata_S664", "Curcuma-viridiflora_S572", "Curcuma-montana_S544", "Curcuma-rubrobracteata_S579", "Curcuma-sp_C342", "Curcuma-angustifolia_S582", "Curcuma-bhatii_S165", "Curcuma-scaposa_S541", "Curcuma-pseudomontana_S526", "Curcuma-caulina_S540", "Curcuma-cannanorensis_S164", "Curcuma-karnatakensis_S676", "Curcuma-mutabilis_S604", "Curcuma-decipiens_S600", "Curcuma-inodora_S602", "Curcuma-sulcata_S606", "Curcuma-aurantiaca_S675", "Curcuma-sp_S667", "Curcuma-sp_S668", "Curcuma-candida_S539", "Curcuma-roscoeana_S656", "Curcuma-myanmarensis_S168", "Curcuma-parviflora_S159", "Curcuma-leonidii_Z1146", "Curcuma-rhabdota_C334", "Curcuma-sparganiifolia_Z1140", "Curcuma-alismatifolia_S591", "Curcuma-gracillima_S1", "Curcuma-pygmaea_Z48", "Curcuma-harmandii_C199", "Curcuma-prasina_Z1145", "Curcuma-thorelii_S590", "Curcuma-flammea_S318", "Curcuma-corniculata_S655", "Curcuma-glans_Z176", "Curcuma-cochinchinensis_C255", "Curcuma-ecomata_S658", "Smithatris-supraneanae_S542", "Curcuma-putii_S489", "Curcuma-cochinchinensis_C147", "Curcuma-arida_C263", "Curcuma-kirirom_Z1142", "Curcuma-sp_C285", "Curcuma-rhomba_C256", "Curcuma-pierreana_S596", "Curcuma-singularis_S2", "Curcuma-xanthella_S320", "Curcuma-singularis_C253", "Curcuma-newmanii_S314", "Curcuma-vitellina_S3", "Curcuma-pambrosima_S319", "Curcuma-cotuana_Z1144", "Curcuma-rhomba_S160", "Camptandra-ovata_S120", "Globba-leucantha_S77")
+
+uncalib <- read.tree("/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_to_be_calibrated.nwk")
+
+#62 tips
+uncalib_kept <- keep.tip(uncalib, tip = to_keep_list)
+
+#Now we need to get the alignment that produce this tree, keeping only the samples from this new tree
+library(BiocManager)
+library(Biostrings)
+
+parent_algn <- readDNAStringSet('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_alignments/parental_alignments/parental_v_r_h/parental_v_r_h_concat.fasta')
+
+filtered_algn <- parent_algn[names(parent_algn) %in% to_keep_list]
+
+
+##########################
+#Rename the samples names
+#BioGeoBears doesn't like special characters, so we will replace every hyphen (-)
+#with a underscore (_)
+
+for(t in 1:length(uncalib_kept$tip.label)){
+  #print(paste(t, parental_c_v_r_kept$tip.label[t], sep = ' '))
+  old_tip <- uncalib_kept$tip.label[t]
+  new_tip <- str_replace(old_tip, '-', '_')
+  uncalib_kept$tip.label[uncalib_kept$tip.label==old_tip] <- new_tip
+}
+
+for(t in 1:length(names(filtered_algn))){
+  old_tip <- names(filtered_algn[t])
+  new_tip <- str_replace(old_tip, '-', '_')
+  names(filtered_algn)[t] <- new_tip
+}
+
+
+#Tip names to be updated
+
+updt_names <- c("Curcuma_singularis_C253" = "Curcuma_sp_C253", "Curcuma_singularis_S2" = "Curcuma_singularis_cpx_S2", "Curcuma_rhomba_C256" = "Curcuma_lampangensis_C256", "Curcuma_sp_C285" = "Curcuma_singularis_cpx_C285", "Curcuma_kirirom_Z1142" = "Curcuma_aff_stenochilla_Z1142", "Smithatris_supraneanae_S542" = "Curcuma_supraneeana_S542", "Curcuma_cochinchinensis_C255" = "Curcuma_sp_nov_C255", "Curcuma_sp_S668" = "Curcuma_sp_nov_S668", "Curcuma_sp_S667" = "Curcuma_sp_nov_S667", "Curcuma_sulcata_S606" = "Curcuma_reclinata_S606", "Curcuma_sp_C342" = "Curcuma_aff_plicata_C342", "Curcuma_viridiflora_S572" = "Curcuma_aff_viridiflora_S572", "Curcuma_petiolata_S664" = "Curcuma_sp_S664", "Curcuma_picta_S514" = "Curcuma_aff_picta_S514", "Curcuma_aromatica_S547" = "Curcuma_haritha_S547", "Curcuma_mangga_S677" = "Curcuma_amada_S677", "Curcuma_mangga_S669" = "Curcuma_aff_manga_S669", "Curcuma_sulphurea_S576" = "Curcuma_sp_S576")
+
+#tree
+uncalib_kept$tip.label[match(names(updt_names), uncalib_kept$tip.label)] <- updt_names
+
+write.tree(uncalib_kept, "/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_c_v_h_ML_to_be_calibrated_updated.nwk")
+
+#alignment
+
+for(i in 1:length(names(filtered_algn))){
+  if(names(filtered_algn)[i] %in% names(updt_names)){
+    names(filtered_algn)[i] <- updt_names[names(filtered_algn)[i]]
+  }
+}
+
+writeXStringSet(filtered_algn, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_alignments/2024/parental_c_v_h_ML_to_be_calibrated_updated.fasta')
+
+
+```
+
+
+Now that the tree is good, we can do the calibration in MEGA, using:
+
+The split between Camptandra and Curcuma is 20.64
+The crown node of Curcuma is 14.66 Mya. (C-vitellina with C-myanmarensis)
+
+with 1.5 (STD)
+
+
+The final result is the file
+
+parental_v_r_h_ML_calibrated_2024.nwk
+
+Finally, before Biogeobears, let's remove Camptandra (the outgroup) from the calibrated tree.
+
+```{r}
+calib_tree <- read.tree('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_calibrated_2024.nwk')
+
+calib_wo_out<- drop.tip(calib_tree, 'Camptandra_ovata_S120')
+
+write.tree(calib_wo_out, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_calibrated_2024_wo_outgroup.nwk')
+```
+
+So, the tree to be used in the Biogeobears analyses is 
+
+parental_v_r_h_ML_calibrated_2024_wo_outgroup.nwk
+
+
+####
+
+When I ran the Biogeobears analysis with the tree above, it gave me an error, saying that some branch lengths is <= 0. To deal with this, let's artificially increase the size of these branch lengths by 0.01, so the script can run.
+
+The script below was adapted from phylo.wikidot.com/testing-for-fixing-common-tree-file-problems-in-biogeobears
+
+```{r}
+#######################################################
+# This script is a rough-and-ready attempt at 
+# checking a list of basic issues that people often 
+# have with their input tree files and geography files.
+# 
+# In the case of trees, some of the issues have 
+# standard fixes.
+#
+# Mostly I am posting this to save myself time, when
+# diagnosing peoples' issues, but feel free to use 
+# it and save me the time!
+#######################################################
+
+# Packages/updates to source
+library(ape)
+library(BioGeoBEARS)
+
+# Set your working directory
+wd = "/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/2024"
+setwd(wd)
+
+# Set your tree file and geography file names
+#trfn = "tree5.newick"
+trfn = "/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_calibrated_2024_wo_outgroup.nwk"
+geogfn = "/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/2024/geo_without_v_2024.txt"
+
+tr = read.tree(trfn)
+#######################################################
+# Load the tree
+# 
+# Your tree file should be Newick format. If, for 
+# some reason, you've got a NEXUS file, this will attempt to 
+# convert to Newick.
+#######################################################
+
+#######################################################
+# Check for negative and 0-length branches
+# Note: in BioGeoBEARS, tips with branches very close to length 0 (but not exactly 0)
+#       are treated as direct ancestors.  But, negative branchlengths, and internal
+#       branchlengths=0, all have to be fixed.
+#######################################################
+# Minimum branchlength for any new internal branches
+min_brlen = 0.01
+
+# Are there 0-length branches?
+min(tr$edge.length)
+
+# Remove branchlengths less than 0
+if (min(tr$edge.length) < 0)
+    {
+    cat("\n\n")
+    cat("Negative branchlengths detected at these nodes:\n\n")
+    trtable = prt(tr, printflag=FALSE)
+    negative_brlens_TF = trtable$edge.length < 0
+    negative_brlens_TF[is.na(negative_brlens_TF)] = FALSE
+    negative_BL_rows = trtable[negative_brlens_TF, ]
+    print(negative_BL_rows)
+    cat("\n")
+
+    cat("Correcting, using impose_min_brlen()")
+    tr = impose_min_brlen(phy=tr, min_brlen=min_brlen, leave_BL0_terminals=TRUE)
+
+    if (grepl(pattern="\\.newick", x=trfn) == TRUE)
+        {
+        new_trfn = gsub(pattern="\\.newick", replacement="_noNeg.newick", x=trfn)
+        } else {
+        new_trfn = paste0(trfn, "_noNeg.newick")
+        }
+    trfn = new_trfn
+
+    write.tree(tr, file=new_trfn)
+    cat("\n\nFixed negative branchlengths, and saved to ", new_trfn, "\n", sep="")
+    } # END if (min(tr$edge.length) < 0)
+min(tr$edge.length)
+sum(tr$edge.length == min(tr$edge.length))
+
+#######################################################
+# *Internal* branches of 0 length?
+#######################################################
+trtable = prt(tr, printflag=FALSE)
+internal_TF = trtable$node.type == "internal"
+edges_BL0_TF = trtable$edge.length == 0
+sum_TFs = (internal_TF + edges_BL0_TF)
+sum_TFs[is.na(sum_TFs)] = 0
+internal_BL0_TF = (sum_TFs == 2)
+sum(internal_BL0_TF)
+
+# Edit the branchlengths, if needed
+if (sum(internal_BL0_TF) > 0)
+    {
+    internal_BL0_rows = trtable[internal_BL0_TF, ]
+    internal_BL0_rows
+    nodes_to_change = internal_BL0_rows$node
+    edges_to_change = internal_BL0_rows$parent_br
+    edges_to_change
+
+    cat("\n\n")
+    cat("Internal branches of length 0 detected at these nodes:\n\n")
+    print(internal_BL0_rows)
+    cat("\n")
+    cat("Changing to length min_brlen=", min_brlen, "...")
+    tr$edge.length[edges_to_change] = min_brlen
+
+    # New filename
+    if (grepl(pattern="\\.newick", x=trfn) == TRUE)
+        {
+        new_trfn = gsub(pattern="\\.newick", replacement="_minBL.newick", x=trfn)
+        } else {
+        new_trfn = paste0(trfn, "_minBL.newick")
+        }
+    trfn = new_trfn
+
+    write.tree(tr, file=new_trfn)
+    cat("...saved to ", new_trfn, "\n", sep="")
+    } # END if (sum(internal_BL0_TF) > 0)
+
+
+```
+
+Now, the tree to be used on the Biogeobears analysis is in
+
+/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_calibrated_2024_wo_outgroup.nwk_minBL.newick
+
+
+
+#7. Filtering for Biogeobears
+
+For biogeobears analyses, we need to drop some tips (i.e., removing redundant accessions, keeping only one individual per species).
+We should only kept the tips that are present in the Locality_table_for_BioGeoBears table.
+
+We are going to use the trees generated in RelTime in MEGA.
+
+The final trees to be used in Biogeobears will be called parental_x_y_ML_calibrated_filtered.nwk
+
+```{r, warning=FALSE}
+setwd('0_trees/')
+parental_c_v_r_calib <- read.tree(file = './parental_c_v_r/parental_c_v_r_ML_calibrated.nwk')
+parental_v_r_h_calib <- read.tree(file = './parental_v_r_h/parental_v_r_h_ML_calibrated.nwk')
+
+tips_to_keep <- c('Curcuma-mangga_S669', 'Curcuma-sp_S659', 'Curcuma-sp_S660', 'Curcuma-sulphurea_S576', 'Curcuma-mangga_S677', 'Curcuma-aromatica_S547', 'Curcuma-picta_S514', 'Curcuma-rubescens_S661', 'Curcuma-montana_S544', 'Curcuma-viridiflora_S572', 'Curcuma-petiolata_S664', 'Curcuma-prakasha_S527', 'Curcuma-sp_S563', 'Curcuma-sp_C342', 'Curcuma-rubrobracteata_S579', 'Curcuma-sp_S668', 'Curcuma-sp_S667', 'Curcuma-aurantiaca_S675', 'Curcuma-reclinata_S678', 'Curcuma-sulcata_S606', 'Curcuma-inodora_S602', 'Curcuma-decipiens_S600', 'Curcuma-pseudomontana_S526', 'Curcuma-caulina_S540', 'Curcuma-cannanorensis_S164', 'Curcuma-karnatakensis_S676', 'Curcuma-mutabilis_S604', 'Curcuma-bhatii_S165', 'Curcuma-scaposa_S541', 'Curcuma-angustifolia_S582', 'Curcuma-candida_S539', 'Curcuma-thorelii_S590', 'Curcuma-pygmaea_Z48', 'Curcuma-gracillima_S1', 'Curcuma-prasina_Z1145', 'Curcuma-harmandii_C199', 'Curcuma-rhabdota_C334', 'Curcuma-sparganiifolia_Z1140', 'Curcuma-alismatifolia_S591', 'Curcuma-involucrata_S205', 'Curcuma-leonidii_Z1146', 'Curcuma-parviflora_S159', 'Curcuma-vamana_S167', 'Curcuma-roscoeana_S656', 'Curcuma-myanmarensis_S168', 'Curcuma-rhomba_S160', 'Curcuma-cotuana_Z1144', 'Curcuma-pambrosima_S319', 'Curcuma-vitellina_S3', 'Curcuma-singularis_C253', 'Curcuma-newmanii_S314', 'Curcuma-xanthella_S320', 'Curcuma-pierreana_S596', 'Curcuma-singularis_S2', 'Curcuma-sp_C285', 'Curcuma-arida_Z1143', 'Curcuma-arida_C263', 'Curcuma-kirirom_Z1142', 'Curcuma-rhomba_C256', 'Curcuma-cochinchinensis_C147', 'Curcuma-putii_S489', 'Smithatris-supraneanae_S542', 'Curcuma-flammea_S318', 'Curcuma-glans_Z176', 'Curcuma-corniculata_S655', 'Curcuma-ecomata_S658', 'Curcuma-cochinchinensis_C255', 'Curcuma-flaviflora_S315')
+
+parental_c_v_r_kept <- keep.tip(parental_c_v_r_calib, tip = tips_to_keep)
+parental_v_r_h_kept <- keep.tip(parental_v_r_h_calib, tip = tips_to_keep)
+
+#Rename the tips
+#BioGeoBears doesn't like special characters, so we will replace every hyphen (-)
+#with a underscore (_)
+
+for(t in 1:length(parental_c_v_r_kept$tip.label)){
+  #print(paste(t, parental_c_v_r_kept$tip.label[t], sep = ' '))
+  old_tip <- parental_c_v_r_kept$tip.label[t]
+  new_tip <- str_replace(old_tip, '-', '_')
+  parental_c_v_r_kept$tip.label[parental_c_v_r_kept$tip.label==old_tip] <- new_tip
+}
+
+for(t in 1:length(parental_v_r_h_kept$tip.label)){
+  #print(paste(t, parental_v_r_h_kept$tip.label[t], sep = ' '))
+  old_tip <- parental_v_r_h_kept$tip.label[t]
+  new_tip <- str_replace(old_tip, '-', '_')
+  parental_v_r_h_kept$tip.label[parental_v_r_h_kept$tip.label==old_tip] <- new_tip
+}
+
+write.tree(parental_c_v_r_kept, file = './parental_c_v_r/parental_c_v_r_ML_calibrated_filtered.nwk')
+write.tree(parental_v_r_h_kept, file = './parental_v_r_h/parental_v_r_h_ML_calibrated_filtered.nwk')
+
+
+
+```
+
+
+
+
+
+#8. Biogeobears
+
+#9. Postbiogeobears
+
+```{r, warning=FALSE}
+setwd('/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/')
+
+#Load the biogeobears data results
+decj_v_r_h_results <- load('Biogeobears/v_r_h_without_v/Curcuma_v_r_h_without_v_rotated_DEC_J_M0_unconstrained_v1.Rdata')
+decj_v_r_h_results <- res
+
+
+tr <- read.tree(res$inputs$trfn)
+#geogfn <- res$inputs$geogfn
+
+
+#my_descendants <- getDescendants(tr, 70)
+#tip_numbers <- 1:Ntip(tr)
+#tips_descendants <- intersect(my_descendants, tip_numbers)
+
+
+
+#################################################################################
+######### Extracting the probabilities of states/ranges at each node ############
+#################################################################################
+
+# This can be run right after e.g. the Psychotria DEC
+# example. You would have to change it if you want: 
+# - different area names than K O M H, 
+# - or have a different number of areas
+# - or have a different max_range_size
+
+####################################
+# Probabilities of states/ranges at each node
+####################################
+# To get the probabilities of each state/range at each node:
+# What you want, if "res" is your results object, is:
+res$ML_marginal_prob_each_state_at_branch_top_AT_node
+
+# In this table:
+# - columns are states/ranges
+# - rows are nodes, in APE order (tips, then root, then internal)
+
+#  You can see the node numbers in the same APE order with:
+trtable = prt(tr, printflag=FALSE)
+head(trtable)
+tail(trtable)
+
+# You can plot APE node labels with:
+#plot(tr)
+#axisPhylo()
+#nodelabels()
+#tiplabels(1:length(tr$tip.label))
+
+# Get your states list (assuming, say, 4-area analysis, with max. rangesize=4)
+max_range_size = 4
+areas = getareas_from_tipranges_object(tipranges)
+
+# This is the list of states/ranges, where each state/range
+# is a list of areas, counting from 0
+states_list_0based = rcpp_areas_list_to_states_list(areas=areas, maxareas=max_range_size, include_null_range=TRUE)
+
+# Make the list of ranges
+ranges_list = NULL
+for (i in 1:length(states_list_0based))
+    {    
+    if ( (length(states_list_0based[[i]]) == 1) && (is.na(states_list_0based[[i]])) )
+        {
+        tmprange = "_"
+        } else {
+        tmprange = paste(areas[states_list_0based[[i]]+1], collapse="")
+        }
+    ranges_list = c(ranges_list, tmprange)
+    }
+
+# Look at the ranges list
+ranges_list
+
+# Make the node numbers the row names
+# Make the range_list the column names
+range_probabilities = as.data.frame(res$ML_marginal_prob_each_state_at_branch_top_AT_node)
+row.names(range_probabilities) = trtable$node
+names(range_probabilities) = ranges_list
+
+# Look at the table (first six rows)
+head(range_probabilities)
+
+# Write the table to a tab-delimited text file (for Excel etc.)
+write.table(range_probabilities, file="/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities.txt", quote=FALSE, sep="\t")
+
+
+################################################################################
+
+
+#Now, I need a table with the main nodes and the highest probabilites for those nodes.
+#First, we need to check the node numbers of our main nodes (i.e., Pierrana, Ecomata, Hitcheniopsis, Roscoeana and Curcuma)
+
+#Check the tree
+plot.phylo(tr, cex = 0.7, label.offset = 0.6)
+tiplabels(frame = 'none', offset = 0.3, cex = 0.7, col = 'red')
+nodelabels(frame = 'none', adj=c(-0.3, 0.5), cex = 0.7, col = 'blue')
+
+tree <- tr
+tree <- paintSubTree(tree, node=70, state = '1', anc = 0) #Pierrana
+tree <- paintSubTree(tree, node=86, state = '2') #Ecomata
+tree <- paintSubTree(tree, node = 93, state = '3') #Hitcheniopsis
+tree <- paintSubTree(tree, node = 103, state = '4') #Roscoeana
+tree <- paintSubTree(tree, node = 104, state = '5') #Curcuma
+
+cols <- c('#000000', '#a8b1bf', '#fc8d59', '#fee090', '#4575b4', '#d73027')
+names(cols) <- 0:5
+
+
+plotSimmap(tree, cols, pts=FALSE, ftype = 'i')
+
+nodelabels(frame = 'none', adj=c(-0.3, 0.5), cex = 0.7, col = 'blue')
+
+
+#Load the probability values from Biogeobears
+v_r_h_node_probabilities <- read.table('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities.txt',
+                      header = T, row.names = 1)
+
+#Order each node by the highest value
+
+
+origin_node <- v_r_h_node_probabilities[68,]
+origin_node <- as.data.frame(t(origin_node))
+origin_node <- origin_node[order(origin_node$`68`, decreasing = TRUE), , drop = FALSE]
+colnames(origin_node) <- 'origin_node_68'
+
+v_r_h_node <- v_r_h_node_probabilities[92,]
+v_r_h_node <- as.data.frame(t(v_r_h_node))
+v_r_h_node <- v_r_h_node[order(v_r_h_node$`92`, decreasing = TRUE), , drop = FALSE]
+colnames(v_r_h_node) <- 'v_r_h_node_92'
+
+hitcheniopsis_node <- v_r_h_node_probabilities[93,]
+hitcheniopsis_node <- as.data.frame(t(hitcheniopsis_node))
+hitcheniopsis_node <- hitcheniopsis_node[order(hitcheniopsis_node$`93`, decreasing = TRUE), , drop = FALSE]
+colnames(hitcheniopsis_node) <- 'hicheniopsis_node_93'
+
+roscoeana_node <- v_r_h_node_probabilities[103,]
+roscoeana_node <- as.data.frame(t(roscoeana_node))
+roscoeana_node <- roscoeana_node[order(roscoeana_node$`103`, decreasing = TRUE), , drop = FALSE]
+colnames(roscoeana_node) <- 'roscoeana_node_103'
+
+ecomata_node <- v_r_h_node_probabilities[86,]
+ecomata_node <- as.data.frame(t(ecomata_node))
+ecomata_node <- ecomata_node[order(ecomata_node$`86`, decreasing = TRUE), , drop = FALSE]
+colnames(ecomata_node) <- 'ecomata_node_86'
+
+pierrana_node <- v_r_h_node_probabilities[70,]
+pierrana_node <- as.data.frame(t(pierrana_node))
+pierrana_node <- pierrana_node[order(pierrana_node$`70`, decreasing = TRUE), , drop = FALSE]
+colnames(pierrana_node) <- 'pierrana_node_70'
+
+curcuma_node <- v_r_h_node_probabilities[104,]
+curcuma_node <- as.data.frame(t(curcuma_node))
+curcuma_node <- curcuma_node[order(curcuma_node$`104`, decreasing = TRUE), , drop = FALSE]
+colnames(curcuma_node) <- 'curcuma_node_104'
+
+#write the final table with the probabilities of the main nodes
+write.csv(origin_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_origin_node.csv')
+
+write.csv(v_r_h_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_v_r_h_node.csv')
+
+write.csv(hitcheniopsis_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_hitcheniopsis_node.csv')
+
+write.csv(roscoeana_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_roscoeana_node.csv')
+
+write.csv(ecomata_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_ecomata_node.csv')
+
+write.csv(pierrana_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_pierrana_node.csv')
+
+write.csv(curcuma_node, '/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/Biogeobears/v_r_h_without_v/v_r_h_without_v_range_probabilities_curcuma_node.csv')
+
+
+## Rotate the tree
+
+tr69 <- rotate(tr, 69)
+tr70 <- rotate(tr69, 70)
+tr114 <- rotate(tr70, 114)
+tr73 <- rotate(tr114, 73)
+
+write.tree(tr73, file = './0_trees/parental_v_r_h/parental_v_r_h_rotated.nwk')
+
+
+
+```
+
+#10. Tests with BAMM, RPANDA, SSE methods
+
+Now we will check if there are different rates of evolution in our tree and if there are correlation between some traits (biotic and abiotic) that could modulate the rates of evolution.
+
+##10.1 BAMM
+
+To install BAMM, follow the steps on its official [website](http://bamm-project.org/). BAMM runs in bash, but the outputs are analyzed in R, with the `BAMMtools` package.
+
+The inputs for BAMM are:
+
+- The control file: this txt file [(downloaded from the website)](http://bamm-project.org/_downloads/template_diversification.txt) has several parameters. Those that are important for our analysis are:
+  - `modeltype = speciationextinction`. We are going to perform a rate of evolution independently of traits.
+  - `treefile = Curcuma_v_r_h_without_v_ultrametric.nwk`. This is the file name of our tree. Make sure that the file is in the same directory of the bamm program.
+  - `runInfoFilename = Curcuma_run_info.txt`. The output file name for our analysis.
+  - `useGlobalSamplingProbability = 0`. This parameter tells us that we are going to input a sampling probability (see below).
+  - `sampleProbsFilename` = sample_probs.txt. Since our tree doesn't contain all species for those lineages, we need to estimate how many species are there. For example, if I have sampled 2 species of a particular genus (*fu*), but you know that *fu* actually has 10 species, I have a fraction of 0.2 (2/10) of the species in *fu*. This information must be inserted on this file for each species in the tree. Check an example from the [website](http://bamm-project.org/advanced.html#accounting-for-non-random-incomplete-taxon-sampling-in-diversification-studies). In our case, our estimate was computed from the Curcuma subgenera (*Curcuma*, *Hitcheniopsis*, *Pierrana*, *Ecomata*), from the tree in (Skopalíková et al., 2023)[https://onlinelibrary.wiley.com/doi/full/10.1111/tpj.16408].
+  - `# seed = -1`. Seed for the random number generator.
+  - `numberOfGenerations = 10000000`. Number of generations to perform MCMC simulation. Higher the number, more time-demanding is the analysis.
+  - `mcmcOutfile = Curcuma_mcmc_out.txt`. File name for the MCMC output, which only includes summary information about MCMC simulation (e.g., log-likelihoods, log-prior, number of processes).
+  - `mcmcWriteFreq = 1000`. Frequency in which to write the MCMC output to a file.
+  - `eventDataWriteFreq = 1000`. Frequency in which to write the event data to a file.
+  - `printFreq = 1000`. Frequency in which to print MCMC status to the screen.
+
+The other parameters can be as it is (for the default analysis).
+
+To run the BAMM, open the bash terminal, go to the directory where BAMM is installed and type:
+
+```{bash, eval = FALSE}
+./bamm -c myControlFile.txt
+```
+
+It will produce a series of outputs that we can analyze here in R.
+
+First, let's import the libraries
+
+```{r}
+library(BAMMtools)
+library(coda)
+library(svglite)
+library(dplyr)
+```
+
+Then, let's import the tree and the event data file, containing all evolutionary rate parameters and their topological mappings. It's important to set a burn-in value, to discard the first runs of BAMM. Here, we are setting the burn-in to 10%.
+
+```{r}
+ctree <- read.tree('/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/test_bamm/Curcuma_v_r_h_without_v_ultrametric.nwk')
+cdata <- getEventData(ctree, eventdata = '/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/test_bamm/with_incomplete_taxon_sampling/event_data.txt', burnin = 0.1)
+
+```
+Now, let's assess if our MCMC simulation converged. 
+
+```{r}
+#Checking MCMC convergence
+mcmcout <- read.csv("/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/test_bamm/with_incomplete_taxon_sampling/Curcuma_mcmc_out.txt", header=T)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+#Also check if after the 10% burn-in discard, the simulation still converges.
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+
+```
+
+The values here should be at least 200. My was 8145 nd 8444. So we are good to go.
+
+Now let's deep into the diversification itself.
+
+```{r}
+####
+#How many rate shifts?
+post_probs <- table(postburn$N_shifts) / nrow(postburn)
+names(post_probs)
+post_probs[1] / post_probs[2]
+
+#model with name ‘0’ is model M_0, or a model with no rate shifts
+#The probability of model ‘0’ is the posterior probability of a model with just 
+#a single evolutionary rate dynamic (no rate shifts)
+#model with name '1' is the one with a single diversification shift, and so one...
+
+
+shift_probs <- summary(cdata)
+```
+In our analysis, the posterior likelihood of no diversification rates (model 0) is 83%, one diversification rate (model 1) is 14% and the other models are super low (< 2 %).
+
+We can also compare the models in a Bayesian approach.
+
+```{r}
+bfmat <- computeBayesFactors(mcmcout, expectedNumberOfShifts=1, burnin=0.1)
+
+bfmat
+#The output here is a pairwise table comparing all models with each other.
+#In the first column '0', check the Bayes factor in favor for the other models
+#In our case, the evidence in favor of a model with a rate shift, relative to the null model, is low (33%)
+
+#Bayes factors greater than 20 generally imply strong evidence for one model over another; 
+#values greater than 50 are very strong evidence in favor of the numerator model
+
+plotPrior(mcmcout, expectedNumberOfShifts = 1)
+
+```
+
+Let's see more plotting.
+
+```{r}
+#Plotting
+plot.bammdata(cdata, lwd=2)
+
+css <- credibleShiftSet(cdata, expectedNumberOfShifts=1, threshold=5, set.limit = 0.95)
+css$number.distinct
+summary(css)
+plot.credibleshiftset(css)
+
+#Only one shift....
+
+
+best <- getBestShiftConfiguration(cdata, expectedNumberOfShifts=1)
+plot.bammdata(best, lwd = 2)
+addBAMMshifts(best, cex=2.5)
+#If there is only one rate regime, then you have no rate shifts: 
+#the single rate regime starts at the root and describes the entire tree.
+
+```
+```{r}
+###Clade specific
+
+allrates <- getCladeRates(cdata)
+mean_allrates <- mean(allrates$lambda)
+mean_allrates
+quantile_allrates <- quantile(allrates$lambda, c(0.05, 0.95))
+quantile_allrates
+
+plotTree(ctree, ftype = 'i', fsize = 0.6, offset = 0.5)
+nodelabels()
+#Clade Curcuma node 104
+
+curcuma_rates <- getCladeRates(cdata, node = 104)
+mean_curcuma_rates <- mean(curcuma_rates$lambda)
+mean_curcuma_rates
+quantile_curcuma_rates <- quantile(curcuma_rates$lambda, c(0.05, 0.95))
+quantile_curcuma_rates
+
+#non hybrids rates
+non_curcuma_rates <- getCladeRates(cdata, node = 104, nodetype = "exclude")
+mean_non_curcuma_rates <- mean(non_curcuma_rates$lambda)
+mean_non_curcuma_rates
+quantile_non_curcuma_rates <- quantile(non_curcuma_rates$lambda, c(0.05, 0.95))
+quantile_non_curcuma_rates
+
+#plot the specific clade rates
+
+#svglite('./rates_clade_specific.svg', height = 4, width = 6)
+par(mfrow = c(1,3))
+st <- max(branching.times(ctree))
+plotRateThroughTime(cdata, intervalCol = 'red', avgCol="red", start.time=st, ylim=c(0,1), cex.axis=1)
+text(x=4, y= 0.8, label="All Curcuma", font=.5, cex=1.0, pos=4)
+
+plotRateThroughTime(cdata, intervalCol = 'blue', avgCol="blue", start.time=st, node = 104, ylim=c(0,1), cex.axis=1)
+text(x=4, y= 0.8, label="Hybrid Curcuma", font=.5, cex=1.0, pos=4)
+
+plotRateThroughTime(cdata, intervalCol="darkgreen", avgCol="darkgreen", start.time=st, node=104, nodetype = "exclude", ylim=c(0,1), cex.axis=1)
+text(x=5, y= 0.8, label="Non-hybrid Curcuma", font=.5, cex=1.0, pos=4)
+
+#dev.off()
+```
+
+With tree with all samples
+
+```{r}
+#biogeobears tree is ctree
+
+#all samples tree
+
+atree <- read.tree('/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/tree_RNmodif.tre')
+
+#Here I extracted the names of both trees (ctree$tip.label and atree$tip.label) and removed the codes of collectors (e.g., JLS_1823), keeping only the species name (e.g., Curcuma_bicolor) and the sampling code (C_189), so we can compare both trees.
+
+#What the trees have in common?
+
+names_biogeotree <- read.table('/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/biogeo_tree_names.txt')
+
+print(paste0('We have ', nrow(names_biogeotree), ' samples in names_biogeotree'))
+#67
+
+names_alltree <- read.table('/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/all_tree_names.txt')
+
+print(paste0('We have ', nrow(names_alltree), ' samples in names_alltree'))
+#162
+
+common_names <- merge(names_biogeotree, names_alltree, by='V1')
+
+print(paste0('We have ', nrow(common_names), ' common samples'))
+#55
+
+names_in_biogeotree_but_not_in_alltree <- names_biogeotree %>% anti_join(names_alltree, by = 'V1')
+
+print(paste0('We have ', nrow(names_in_biogeotree_but_not_in_alltree), ' samples in the biogeotree that are not in the all tree'))
+#12
+
+names_in_alltree_but_not_in_biogeotree <- names_alltree %>% anti_join(names_biogeotree, by = 'V1')
+
+print(paste0('We have ', nrow(names_in_alltree_but_not_in_biogeotree), ' samples in the alltree that are not in the biogeotree'))
+#107
+
+#Now I need to select at least of one individual of each species and drop the others. But I need to make sure that the samples under the same name are monofiletic... Must be done manually.
+
+#This is the list that I came up with:
+
+names_to_keep <- c('Camptandra-ovata_M-11-3_S120',
+'Curcuma-aeruginosa_JLS_793_S169',
+'Curcuma-aeruginosa_JLS_71431_S564',
+'Curcuma-aeruginosa_JLS_73371_S566',
+'Curcuma-alismatifolia_JLS_427_S158',
+'Curcuma-amada_JLS_73440_S671',
+'Curcuma-amada_JLS_71472_S672',
+'Curcuma-amada_JLS_73472_S580',
+'Curcuma-angustifolia_JLS_73449_S674',
+'Curcuma-arida_JLS_2575_Z1143',
+'Curcuma-aromatica_JLS_84109_S547',
+'Curcuma-aromatica2_JLS_71447_S513',
+'Curcuma-aromatica3_JLS_71488_S515',
+'Curcuma-bhatii_JLS_73446_S165',
+'Curcuma-bicolor_JLS_1823_C189',
+'Curcuma-bicolor_T11-49_Z173',
+'Curcuma-caesia_JLS_71451_S569',
+'Curcuma-caesia_JLS_71439_S568',
+'Curcuma-campanulata_JLS_73246_S598',
+'Curcuma-candida_JLS_606_S156',
+'Curcuma-cannanorensis_JLS_84144_S164',
+'Curcuma-caulina_JLS_84178_S540',
+'Curcuma-cochinchinensis_JLS_2231_S685',
+'Curcuma-cochinchinensis_JLS_2239_S687',
+'Curcuma-codonantha_JLS_73390_S555',
+'Curcuma-colorata_JLS_73338_S519',
+'Curcuma-corniculata_JLS_1751_S655',
+'Curcuma-cotuana_TG_009_Z1144',
+'Curcuma-decipiens_JLS_73445_S600',
+'Curcuma-ecomata_JLS_708_S658',
+'Curcuma-euchroma_JLS_73373_S523',
+'Curcuma-flammea_JLS_1777_S318',
+'Curcuma-flaviflora_T-11-113_S315',
+'Curcuma-fucata_JLS_71430_S549',
+'Curcuma-glans_T-11-42_S316',
+'Curcuma-gracillima_Tran_48_S1',
+'Curcuma-harmandii_JLS_73326_C199',
+'Curcuma-heyneana_JLS_73369_S553',
+'Curcuma-inodora_JLS_73403_S602',
+'Curcuma-involucrata_JLS_3746_S205',
+'Curcuma-karnatakensis_JLS_84163_S676',
+'Curcuma-kirirom_CC_1299_Z1142',
+'Curcuma-leonidii_LUU_807_Z1146',
+'Curcuma-longa_JLS_73222_Z1134',
+'Curcuma-longa_JLS_73411_S551',
+'Curcuma-mangga_JLS_84149_S581',
+'Curcuma-mangga_JLS_86306_S574',
+'Curcuma-mangga_JLS_84150_S670',
+'Curcuma-montana_JLS_73473_S531',
+'Curcuma-mutabilis_JLS_84145_S604',
+'Curcuma-myanmarensis_Kress_99-6507_S168',
+'Curcuma-newmanii_JLS_473_S314',
+'Curcuma-oligantha_JLS_73223_S157',
+'Curcuma-pambrosima_Ly_316_S319',
+'Curcuma-parviflora_JLS_73328_S595',
+'Curcuma-parviflora_MFN_2645_S592',
+'Curcuma-petiolata_JLS_22_S175',
+'Curcuma-petiolata_Kress_00-6619_S664',
+'Curcuma-picta_JLS_71462_S514',
+'Curcuma-picta_JLS_71464_S545',
+'Curcuma-pierreana_JLS_73352_S313',
+'Curcuma-plicata_Kress_99-6463_S657',
+'Curcuma-plicata_T-11-118_C295',
+'Curcuma-plicata_JLS_1027_S204',
+'Curcuma-prakasha_JLS_71443_S550',
+'Curcuma-prakasha_JLS_71450_S560',
+'Curcuma-prasina_DJM_5889_Z1145',
+'Curcuma-pseudomontana_JLS_73401_S526',
+'Curcuma-purpurascens_JLS_73339_S554',
+'Curcuma-putii_QSBG-20130711_S489',
+'Curcuma-pygmaea_JLS__722_Z48',
+'Curcuma-reclinata_JLS_73467_S606',
+'Curcuma-repens_JLS_71456_S516',
+'Curcuma-rhabdota_JLS_73331_S599',
+'Curcuma-rhomba_JLS_2233_S686',
+'Curcuma-rhomba_JLS_545_S160',
+'Curcuma-roscoeana_JLS_73309_S698',
+'Curcuma-rubescens_JLS_71454_S578',
+'Curcuma-rubescens_JLS_71457_S661',
+'Curcuma-rubrobracteata_JLS_73332_S579',
+'Curcuma-sahuynhensis_Ly_486_C271',
+'Curcuma-scaposa_JLS_86407_S541',
+'Curcuma-singularis_JLS_73343_S693',
+'Curcuma-singularis_MFN_2413_S2',
+'Curcuma-singularis_Tran_240_S684',
+'Curcuma-soloensis_JLS_73340_S520',
+'Curcuma-sp_JLS_71425_S563',
+'Curcuma-sp_JLS_73217_S662',
+'Curcuma-sp_JLS_73361_S521',
+'Curcuma-sp_JLS_73362_S660',
+'Curcuma-sp_JLS_73364_S522',
+'Curcuma-sp_JLS_73372_S659',
+'Curcuma-sp_JLS_73383_S552',
+'Curcuma-sp_Kress_00-6633_S666',
+'Curcuma-sp_Kress_03-7278_S665',
+'Curcuma-sp_Kress_03-7284_S668',
+'Curcuma-sp_Kress_03-7315_S667',
+'Curcuma-sp_Kress_99-6498_C342',
+'Curcuma-sparganiifolia_MFN_2403_S594',
+'Curcuma-sulphurea_JLS_86231_S576',
+'Curcuma-supraneeana_JLS_206_S542',
+'Curcuma-thorelii_Tran_238_C250',
+'Curcuma-vamana_JLS_84156_S167',
+'Curcuma-viridiflora_JLS_1701_S572',
+'Curcuma-vitellina_Tran_70_S3',
+'Curcuma-xanthella_Ly_348_S320',
+'Curcuma-zanthorrhiza_JLS_73420_S548',
+'Curcuma-zanthorrhiza_JLS_73350_Z1139',
+'Globba-leucantha_S77',
+'Pyrgophyllum-yunnanense_S261')
+
+
+atree_keep <- keep.tip(atree, names_to_keep)
+
+#Now we need to date this tree. Let's save it and then run the analyses out of R.
+
+write.tree(atree_keep, '/Users/marcosqueiroz/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/whole_tree_to_date.nwk')
+```
+
+#Niche overlapping analyses
+
+To estimate the environmental niches of different lineages of *Curcuma*.
+
+First, we need to set up our input data to fit the requirements of ecospat package.
+
+From the Bijay's online table ('Curcuma_Subgroup_Bk_new_Feb23_2024').
+
+```{r}
+library(readxl)
+library(dplyr)
+
+
+df=read_xlsx('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/extract_environment/2024/Curcuma_Subgroup_Bk_new_Feb23_2024.xlsx', sheet = 'Rearranged_Feb23_024', na = 'NA')
+
+```
+
+I extracted columns `ID`, `id_ginger`, `OriginalOrder`, `genus`, `subgroup`, `species`, `New_tip_label_Jan26_2024`, `Ploidy`, `Polyploidy`, `Cytotype`, `Lat_deg_decimal_New`, `Long_deg_decimal_New`. 
+
+```{r}
+df_f = df %>% select('ID', 'id_ginger', 'OriginalOrder', 'genus', 'subgroup', 'species', 'New_tip_label_Jan26_2024', 'Ploidy', 'Polyploidy', 'Cytotype', 'Lat_deg_decimal_New...83', 'Long_deg_decimal_New...94')
+
+colnames(df_f) = c('ID', 'id_ginger', 'OriginalOrder', 'genus', 'subgroup', 'species', 'New_tip_label_Jan26_2024', 'Ploidy', 'Polyploidy', 'Cytotype', 'Lat_deg_decimal_New', 'Long_deg_decimal_New')
+
+#Removing NAs from the Lat Long columns and 0/0 Lat/Long
+
+df_f <- df_f[complete.cases(df_f[c("Lat_deg_decimal_New", "Long_deg_decimal_New")]), ]
+df_f <- df_f[!df_f$Lat_deg_decimal_New == 0, ]
+df_f <- df_f[!df_f$Long_deg_decimal_New== 0, ]
+
+#Capturing only the diploids
+
+df_f_dp <- df_f[df_f$Cytotype == 'Diploids',]
+
+#Keeping only spp names that match those in the biogeographic tree but didn't have 'Diploid' in the Cytotype column
+
+sp_keeping <- c("cotuana", "vitellina", "C. lampangensis", "C. aff. stenochilla", "arida", "putii", "supraneeana", "thorelii", "parviflora cf. / thorelli", "prasina", "harmandii", "harmandii cf.", "harmandii-list 4 cf.", "harmandii-list 5 cf.", "pygmaea", "gracillima", "alismatifolia", "sparganiifolia", "leonidii", "parviflora", "parviflora-list 1", "parviflora-list 10", "parviflora-list 2", "parviflora-list 3", "parviflora-list 5" )
+
+keeping_rows <- df_f[df_f$species %in% sp_keeping, ]
+
+df_f_dp <- rbind(df_f_dp, keeping_rows)
+
+#Removing those not in the biogeo tree
+sp_remove <- c("aromatica 2x", "bicolor", "sp. Euchroma aff.", "kudagensis", "neilgherrensis", "cordata", "flaviflora", "coriacea")
+
+# Create a logical vector indicating rows to keep
+rows_to_keep <- !grepl(paste(sp_remove, collapse = "|"), df_f_dp$species)
+
+# Subset the dataframe using the logical vector
+df_f_dp <- df_f_dp[rows_to_keep, ]
+
+#Removing duplicates
+
+duplicates <- duplicated(df_f_dp)
+print(df_f_dp[duplicates, ])
+
+df_f_dp <- unique(df_f_dp)
+
+```
+
+`
+
+Great, this is the list of spp to capture the environment data to build our niche.
+To make the niche overlapping, we'll construct the niches based in the Curcuma lineages.
+We'll do it in MetaCentrum. But let's save the file first.
+
+```{r}
+write.csv(df_f_dp, './extract_environment/2024/from_bijay_to_extract_niche_overlapping_cleanned.csv', row.names = F)
+```
+
+
+In Metacentrum, we need to activate the conda environment
+```{bash}
+module add conda-modules-py37
+conda activate /storage/pruhonice1-ibot/home/marcosvdqueiroz/.conda/envs/rgdal
+```
+
+Activate R, then run the code
+```{r}
+library(raster)
+library(sp)
+library(tools)
+
+#Fist, we need to crop the raster files to the asia extent
+
+#import the file list
+chelsa_files <- Sys.glob('./bio*.tif')
+soil_files <- Sys.glob('./new_asia*.tif')
+
+
+
+
+
+#asia extent
+asia_ext <- c(62.869, 113.927, 1.563, 37.665)
+
+#cropping and saving the new rasters
+for(c in chelsa_files){
+     r <- raster(c)
+     r_crop <- crop(r, asia_ext)
+     r_name <- file_path_sans_ext(basename(c))
+     r_final_name <- paste0(r_name, '_asia.tif')
+     writeRaster(r_crop, r_final_name)
+     print(paste0(r_final_name, ' was exported'))
+}
+
+#cropping and saving the new rasters
+for(s in soil_files){
+     r <- raster(s)
+     r_crop <- crop(r, asia_ext)
+     r_name <- file_path_sans_ext(basename(s))
+     r_final_name <- paste0(r_name, '_asia.tif')
+     writeRaster(r_crop, r_final_name)
+     print(paste0(r_final_name, ' was exported'))
+}
+
+#Now, we need to resample the files to the same resolution. We'll keep it as 1000 x 1000 pixels
+
+#creating a empty raster object with our desired output
+
+common_grid <- raster(nrows = 100, ncols = 100, ext = r_crop@extent)
+
+chelsa_files_cropped <- Sys.glob('./bio*_asia.tif')
+soil_files_cropped <- list.files(pattern = 'new_asia*_asia.tif', full.names = TRUE)
+
+for(c in chelsa_files_cropped){
+  c_name <- file_path_sans_ext(basename(c))
+  c_final_name <- paste0(c_name, '_resampled.tif')
+  r <- raster(c)
+  r_resampled <- resample(r, common_grid, method = 'bilinear')
+  writeRaster(r_resampled, c_final_name)
+  print(paste0(c_final_name, ' was exported'))
+  }
+
+for(s in soil_files_cropped){
+  s_name <- file_path_sans_ext(basename(s))
+  s_final_name <- paste0(s_name, '_resampled.tif')
+  r <- raster(s)
+  r_resampled <- resample(r, common_grid, method = 'bilinear')
+  writeRaster(r_resampled, s_final_name)
+  print(paste0(s_final_name, ' was exported'))
+  }
+
+#this may take a while, since the soil files are really large
+
+#with the resampled data, let's transform the pixels into points
+chelsa_files_resampled <- Sys.glob('bio*resampled.tif')
+soil_files_resampled <- Sys.glob('*new_asia*resampled.tif')
+
+bio_files_asia <- Sys.glob('*asia.tif')
+
+for(c in chelsa_files_resampled){
+  r <- raster(c)
+  c_name <- file_path_sans_ext(basename(c))
+  c_final_name <- paste0(c_name, '_extracted_values.csv')
+  r_coords <- xyFromCell(r, 1:ncell(r))
+  r_coords_and_values <- SpatialPointsDataFrame(r_coords, data.frame(value = getValues(r)))
+  write.csv(r_coords_and_values, c_final_name, row.names = F)
+}
+
+for(s in soil_files_resampled){
+  r <- raster(s)
+  s_name <- file_path_sans_ext(basename(s))
+  s_final_name <- paste0(s_name, '_extracted_values.csv')
+  r_coords <- xyFromCell(r, 1:ncell(r))
+  r_coords_and_values <- SpatialPointsDataFrame(r_coords, data.frame(value = getValues(r)))
+  write.csv(r_coords_and_values, s_final_name, row.names = F)
+}
+
+
+#Great, now let's extract the values of all these raster data, using our coordinate points.
+my_table_f <- read.csv('./from_bijay_to_extract_niche_overlapping_cleanned.csv')
+
+#filtering
+my_table_f <- my_table[c('ID', 'Lat_deg_decimal_New', 'Long_deg_decimal_New')]
+
+#drop NAs and 0s
+my_table_f <- na.omit(my_table_f)
+my_table_f <- my_table_f[!my_table_f$Lat_deg_decimal_New == 0, ]
+my_table_f <- my_table_f[!my_table_f$Long_deg_decimal_New== 0, ]
+
+#extract only the coordinates
+coords <- my_table_f[c('ID', 'Lat_deg_decimal_New', 'Long_deg_decimal_New')]
+
+#transform the coordinate values in a Spatial Points object
+coordinates(coords) <- ~Long_deg_decimal_New+Lat_deg_decimal_New
+
+#import the raster files as a stack
+clim_files <- Sys.glob('bio*asia_resampled.tif')
+soil_files <- Sys.glob('new_asia*resampled.tif')
+
+clim_stack <- stack(clim_files)
+soil_stack <- stack(soil_files)
+
+#Extract the values of all rasters, based on the coordinate points
+clim_values <- raster::extract(clim_stack, coords)
+soil_values <- raster::extract(soil_stack, coords)
+
+#Combine the extracted values with the coordinates table
+combinePointValues <- cbind(my_table_f, clim_values, soil_values)
+
+combinePointValues$Lat_deg_decimal_New <- NULL
+combinePointValues$Long_deg_decimal_New <- NULL
+
+#Merge the new climatic table with the original one, by the temporary ID
+
+all_tables <- merge(my_table, combinePointValues,by='ID', all = TRUE)
+
+#Curcuma picta ID 246 produced NAs... let's remove it.
+
+all_tables <- all_tables[all_tables$ID != 246, ]
+
+#add a new column to be used in the niche analyses
+all_tables$species_occ <- 1
+
+write.csv(all_tables, file ='extracted_values_to_niche_analysis.csv', row.names = F)
+
+```
+
+Now, we need to merge the tables with environmental data and the coordinate values, adding at the end a column where that particular location has (1) or not (0) a individual.
+
+```{r}
+library(dplyr)
+
+# List of CSV file names
+env_files <- Sys.glob('*extracted_values.csv')
+
+#create an empty dataframe
+df_envs <- data.frame(matrix(nrow = 1000000, ncol = 29))
+
+for(i in 1:length(env_files)){
+  colname <- tools::file_path_sans_ext(basename(env_files[i]))
+  temp_df <- read.csv(env_files[i])
+  df_envs[i] <- temp_df$value
+  names(df_envs)[i] <- colname
+}
+
+#add the x/y to the df_envs
+df_envs$x <- temp_df$x
+df_envs$y <- temp_df$y
+
+#add a new column to be used in the niche analyses
+df_envs$species_occ <- 0
+
+# Write the combined data frame to a new CSV file
+write.csv(df_envs, "env_values.csv", row.names = FALSE)
+
+```
+
+Now let's conduct the niche analyses.
+
+```{r}
+library(ecospat)
+library(dplyr)
+library(ade4)
+
+data("ecospat.testData")
+data("ecospat.testNiche.inv")
+data("ecospat.testNiche.nat")
+
+
+##2.5 Niche Quantification and Comparison with Ordination techniques
+#First we load the test data for the niche dynamics analysis in invaded and native range. A PCA is
+#calibrated on all the sites of the study area, including both native and invaded ranges (same as PCAenv
+#in Broenniman et al. 2012). Finally, we plot the variables Contributions
+
+
+####
+cs = read.csv('./extract_environment/2024/cs_extracted_bg_and_curcuma.csv')
+c1s = read.csv('./extract_environment/2024/c1s_extracted_bg_and_curcuma.csv')
+c2s = read.csv('./extract_environment/2024/c2s_extracted_bg_and_curcuma.csv')
+es = read.csv('./extract_environment/2024/es_extracted_bg_and_curcuma.csv')
+hs = read.csv('./extract_environment/2024/hs_extracted_bg_and_curcuma.csv')
+ps = read.csv('./extract_environment/2024/ps_extracted_bg_and_curcuma.csv')
+rs = read.csv('./extract_environment/2024/rs_extracted_bg_and_curcuma.csv')
+
+
+####
+#PCAs
+
+#C
+pca_c_vs_e = ade4::dudi.pca(rbind(cs, es)[, 5:23], scannf = F, nf = 2)
+pca_c_vs_h = ade4::dudi.pca(rbind(cs, hs)[, 5:23], scannf = F, nf = 2)
+pca_c_vs_p = ade4::dudi.pca(rbind(cs, ps)[, 5:23], scannf = F, nf = 2)
+pca_c_vs_r = ade4::dudi.pca(rbind(cs, rs)[, 5:23], scannf = F, nf = 2)
+
+#C1
+pca_c1_vs_c2 = ade4::dudi.pca(rbind(c1s, c2s)[, 5:23], scannf = F, nf = 2)
+pca_c1_vs_e = ade4::dudi.pca(rbind(c1s, es)[, 5:23], scannf = F, nf = 2)
+pca_c1_vs_h = ade4::dudi.pca(rbind(c1s, hs)[, 5:23], scannf = F, nf = 2)
+pca_c1_vs_p = ade4::dudi.pca(rbind(c1s, ps)[, 5:23], scannf = F, nf = 2)
+pca_c1_vs_r = ade4::dudi.pca(rbind(c1s, rs)[, 5:23], scannf = F, nf = 2)
+
+#C2
+pca_c2_vs_e = ade4::dudi.pca(rbind(c2s, es)[, 5:23], scannf = F, nf = 2)
+pca_c2_vs_h = ade4::dudi.pca(rbind(c2s, hs)[, 5:23], scannf = F, nf = 2)
+pca_c2_vs_p = ade4::dudi.pca(rbind(c2s, ps)[, 5:23], scannf = F, nf = 2)
+pca_c2_vs_r = ade4::dudi.pca(rbind(c2s, rs)[, 5:23], scannf = F, nf = 2)
+
+#E
+pca_e_vs_h = ade4::dudi.pca(rbind(es, hs)[, 5:23], scannf = F, nf = 2)
+pca_e_vs_p = ade4::dudi.pca(rbind(es, ps)[, 5:23], scannf = F, nf = 2)
+pca_e_vs_r = ade4::dudi.pca(rbind(es, rs)[, 5:23], scannf = F, nf = 2)
+
+#H
+pca_h_vs_p = ade4::dudi.pca(rbind(hs, ps)[, 5:23], scannf = F, nf = 2)
+pca_h_vs_r = ade4::dudi.pca(rbind(hs, rs)[, 5:23], scannf = F, nf = 2)
+
+#P
+pca_p_vs_r = ade4::dudi.pca(rbind(ps, rs)[, 5:23], scannf = F, nf = 2)
+
+
+# PCA scores for the whole study area
+#C
+scores.globclim_c_vs_e = pca_c_vs_e$li
+scores.globclim_c_vs_h = pca_c_vs_h$li
+scores.globclim_c_vs_p = pca_c_vs_p$li
+scores.globclim_c_vs_r = pca_c_vs_r$li
+
+#C1
+scores.globclim_c1_vs_c2 = pca_c1_vs_c2$li
+scores.globclim_c1_vs_e = pca_c1_vs_e$li
+scores.globclim_c1_vs_h = pca_c1_vs_h$li
+scores.globclim_c1_vs_p = pca_c1_vs_p$li
+scores.globclim_c1_vs_r = pca_c1_vs_r$li
+
+#C2
+scores.globclim_c2_vs_e = pca_c2_vs_e$li
+scores.globclim_c2_vs_h = pca_c2_vs_h$li
+scores.globclim_c2_vs_p = pca_c2_vs_p$li
+scores.globclim_c2_vs_r = pca_c2_vs_r$li
+
+#E
+scores.globclim_e_vs_h = pca_e_vs_h$li
+scores.globclim_e_vs_p = pca_e_vs_p$li
+scores.globclim_e_vs_r = pca_e_vs_r$li
+
+#H
+scores.globclim_h_vs_p = pca_h_vs_p$li
+scores.globclim_h_vs_r = pca_h_vs_r$li
+
+#P
+scores.globclim_p_vs_r = pca_p_vs_r$li
+
+
+
+# PCA scores for the occurence ("scores.sp.nat / left)
+#C - left
+scores.c_vs_e_occurence = ade4::suprow(pca_c_vs_e,cs[which(cs[,4]==1), 5:23])$li
+scores.c_vs_h_occurence = ade4::suprow(pca_c_vs_h,cs[which(cs[,4]==1), 5:23])$li
+scores.c_vs_p_occurence = ade4::suprow(pca_c_vs_p,cs[which(cs[,4]==1), 5:23])$li
+scores.c_vs_r_occurence = ade4::suprow(pca_c_vs_r,cs[which(cs[,4]==1), 5:23])$li
+
+#C1 - left
+scores.c1_vs_c2_occurence = ade4::suprow(pca_c1_vs_c2,c1s[which(c1s[,4]==1), 5:23])$li
+scores.c1_vs_e_occurence = ade4::suprow(pca_c1_vs_e,c1s[which(c1s[,4]==1), 5:23])$li
+scores.c1_vs_h_occurence = ade4::suprow(pca_c1_vs_h,c1s[which(c1s[,4]==1), 5:23])$li
+scores.c1_vs_p_occurence = ade4::suprow(pca_c1_vs_p,c1s[which(c1s[,4]==1), 5:23])$li
+scores.c1_vs_r_occurence = ade4::suprow(pca_c1_vs_r,c1s[which(c1s[,4]==1), 5:23])$li
+
+#C2 - left
+scores.c2_vs_e_occurence = ade4::suprow(pca_c2_vs_e,c2s[which(c2s[,4]==1), 5:23])$li
+scores.c2_vs_h_occurence = ade4::suprow(pca_c2_vs_h,c2s[which(c2s[,4]==1), 5:23])$li
+scores.c2_vs_p_occurence = ade4::suprow(pca_c2_vs_p,c2s[which(c2s[,4]==1), 5:23])$li
+scores.c2_vs_r_occurence = ade4::suprow(pca_c2_vs_r,c2s[which(c2s[,4]==1), 5:23])$li
+
+#E - left
+scores.e_vs_h_occurence = ade4::suprow(pca_e_vs_h,es[which(es[,4]==1), 5:23])$li
+scores.e_vs_p_occurence = ade4::suprow(pca_e_vs_p,es[which(es[,4]==1), 5:23])$li
+scores.e_vs_r_occurence = ade4::suprow(pca_e_vs_r,es[which(es[,4]==1), 5:23])$li
+
+#H - left
+scores.h_vs_p_occurence = ade4::suprow(pca_h_vs_p,hs[which(hs[,4]==1), 5:23])$li
+scores.h_vs_r_occurence = ade4::suprow(pca_h_vs_r,hs[which(hs[,4]==1), 5:23])$li
+
+#P - left
+scores.p_vs_r_occurence = ade4::suprow(pca_p_vs_r,ps[which(ps[,4]==1), 5:23])$li
+
+# PCA scores for the occurence ("scores.sp.inv / right)
+
+#C - right
+scores.e_vs_c_occurence = ade4::suprow(pca_c_vs_e,es[which(es[,4]==1), 5:23])$li
+scores.h_vs_c_occurence = ade4::suprow(pca_c_vs_h,hs[which(hs[,4]==1), 5:23])$li
+scores.p_vs_c_occurence = ade4::suprow(pca_c_vs_p,ps[which(ps[,4]==1), 5:23])$li
+scores.r_vs_c_occurence = ade4::suprow(pca_c_vs_r,rs[which(rs[,4]==1), 5:23])$li
+
+#C1 - right
+scores.c2_vs_c1_occurence = ade4::suprow(pca_c1_vs_c2,c2s[which(c2s[,4]==1), 5:23])$li
+scores.e_vs_c1_occurence = ade4::suprow(pca_c1_vs_e,es[which(es[,4]==1), 5:23])$li
+scores.h_vs_c1_occurence = ade4::suprow(pca_c1_vs_h,hs[which(hs[,4]==1), 5:23])$li
+scores.p_vs_c1_occurence = ade4::suprow(pca_c1_vs_p,ps[which(ps[,4]==1), 5:23])$li
+scores.r_vs_c1_occurence = ade4::suprow(pca_c1_vs_r,rs[which(rs[,4]==1), 5:23])$li
+
+#C2 - right
+scores.e_vs_c2_occurence = ade4::suprow(pca_c2_vs_e,es[which(es[,4]==1), 5:23])$li
+scores.h_vs_c2_occurence = ade4::suprow(pca_c2_vs_h,hs[which(hs[,4]==1), 5:23])$li
+scores.p_vs_c2_occurence = ade4::suprow(pca_c2_vs_p,ps[which(ps[,4]==1), 5:23])$li
+scores.r_vs_c2_occurence = ade4::suprow(pca_c2_vs_r,es[which(rs[,4]==1), 5:23])$li
+
+#E - right
+scores.h_vs_e_occurence = ade4::suprow(pca_e_vs_h,hs[which(hs[,4]==1), 5:23])$li
+scores.p_vs_e_occurence = ade4::suprow(pca_e_vs_h,ps[which(ps[,4]==1), 5:23])$li
+scores.r_vs_e_occurence = ade4::suprow(pca_e_vs_r,rs[which(rs[,4]==1), 5:23])$li
+
+#H - right
+scores.p_vs_h_occurence = ade4::suprow(pca_h_vs_p,ps[which(ps[,4]==1), 5:23])$li
+scores.r_vs_h_occurence = ade4::suprow(pca_h_vs_r,rs[which(rs[,4]==1), 5:23])$li
+
+#P - right
+scores.r_vs_p_occurence = ade4::suprow(pca_p_vs_r,rs[which(rs[,4]==1), 5:23])$li
+
+
+
+#PCA scores for the whole left lineage ('scores.clim.nat' / left)
+#C
+scores.clim_c_vs_e = ade4::suprow(pca_c_vs_e, cs[,5:23])$li
+scores.clim_c_vs_h = ade4::suprow(pca_c_vs_h, cs[,5:23])$li
+scores.clim_c_vs_p = ade4::suprow(pca_c_vs_p, cs[,5:23])$li
+scores.clim_c_vs_r = ade4::suprow(pca_c_vs_r, cs[,5:23])$li
+
+#C1
+scores.clim_c1_vs_c2 = ade4::suprow(pca_c1_vs_c2, c1s[,5:23])$li
+scores.clim_c1_vs_e = ade4::suprow(pca_c1_vs_e, c1s[,5:23])$li
+scores.clim_c1_vs_h = ade4::suprow(pca_c1_vs_h, c1s[,5:23])$li
+scores.clim_c1_vs_p = ade4::suprow(pca_c1_vs_p, c1s[,5:23])$li
+scores.clim_c1_vs_r = ade4::suprow(pca_c1_vs_r, c1s[,5:23])$li
+
+#C2
+scores.clim_c2_vs_e = ade4::suprow(pca_c2_vs_e, c2s[,5:23])$li
+scores.clim_c2_vs_h = ade4::suprow(pca_c2_vs_h, c2s[,5:23])$li
+scores.clim_c2_vs_p = ade4::suprow(pca_c2_vs_p, c2s[,5:23])$li
+scores.clim_c2_vs_r = ade4::suprow(pca_c2_vs_r, c2s[,5:23])$li
+
+#E
+scores.clim_e_vs_h = ade4::suprow(pca_e_vs_h, es[,5:23])$li
+scores.clim_e_vs_p = ade4::suprow(pca_e_vs_p, es[,5:23])$li
+scores.clim_e_vs_r = ade4::suprow(pca_e_vs_r, es[,5:23])$li
+
+#H
+scores.clim_h_vs_p = ade4::suprow(pca_h_vs_p, hs[,5:23])$li
+scores.clim_h_vs_r = ade4::suprow(pca_h_vs_r, hs[,5:23])$li
+
+#P
+scores.clim_p_vs_r = ade4::suprow(pca_p_vs_r, ps[,5:23])$li
+
+
+
+#PCA scores for the whole right lineage ('scores.clim.inv' / right)
+#C
+scores.clim_e_vs_c = ade4::suprow(pca_c_vs_e, es[,5:23])$li
+scores.clim_h_vs_c = ade4::suprow(pca_c_vs_h, hs[,5:23])$li
+scores.clim_p_vs_c = ade4::suprow(pca_c_vs_p, ps[,5:23])$li
+scores.clim_r_vs_c = ade4::suprow(pca_c_vs_r, rs[,5:23])$li
+
+#C1
+scores.clim_c2_vs_c1 = ade4::suprow(pca_c1_vs_c2, c2s[,5:23])$li
+scores.clim_e_vs_c1 = ade4::suprow(pca_c1_vs_e, es[,5:23])$li
+scores.clim_h_vs_c1 = ade4::suprow(pca_c1_vs_h, hs[,5:23])$li
+scores.clim_p_vs_c1 = ade4::suprow(pca_c1_vs_p, ps[,5:23])$li
+scores.clim_r_vs_c1 = ade4::suprow(pca_c1_vs_r, rs[,5:23])$li
+
+#C2
+scores.clim_e_vs_c2 = ade4::suprow(pca_c2_vs_e, es[,5:23])$li
+scores.clim_h_vs_c2 = ade4::suprow(pca_c2_vs_h, hs[,5:23])$li
+scores.clim_p_vs_c2 = ade4::suprow(pca_c2_vs_p, ps[,5:23])$li
+scores.clim_r_vs_c2 = ade4::suprow(pca_c2_vs_r, rs[,5:23])$li
+
+#E
+scores.clim_h_vs_e = ade4::suprow(pca_e_vs_h, hs[,5:23])$li
+scores.clim_p_vs_e = ade4::suprow(pca_e_vs_p, ps[,5:23])$li
+scores.clim_r_vs_e = ade4::suprow(pca_e_vs_r, rs[,5:23])$li
+
+#H
+scores.clim_p_vs_h = ade4::suprow(pca_h_vs_p, ps[,5:23])$li
+scores.clim_r_vs_h = ade4::suprow(pca_h_vs_r, rs[,5:23])$li
+
+#P
+scores.clim_r_vs_p = ade4::suprow(pca_p_vs_r, ps[,5:23])$li
+
+
+
+
+#gridding the left niche (gridding the native niche / grid.clim.nat)
+
+#C
+grid.clim.c_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_e,
+                                    glob1 = scores.clim_c_vs_e,
+                                    sp=scores.c_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_h,
+                                    glob1 = scores.clim_c_vs_h,
+                                    sp=scores.c_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_p,
+                                    glob1 = scores.clim_c_vs_p,
+                                    sp=scores.c_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_r,
+                                    glob1 = scores.clim_c_vs_r,
+                                    sp=scores.c_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+#C1
+grid.clim.c1_vs_c2 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_c2,
+                                    glob1 = scores.clim_c1_vs_c2,
+                                    sp=scores.c1_vs_c2_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c1_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_e,
+                                    glob1 = scores.clim_c1_vs_e,
+                                    sp=scores.c1_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c1_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_h,
+                                    glob1 = scores.clim_c1_vs_h,
+                                    sp=scores.c1_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c1_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_p,
+                                    glob1 = scores.clim_c1_vs_p,
+                                    sp=scores.c1_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c1_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_r,
+                                    glob1 = scores.clim_c1_vs_r,
+                                    sp=scores.c1_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+#C2
+grid.clim.c2_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_e,
+                                    glob1 = scores.clim_c2_vs_e,
+                                    sp=scores.c2_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c2_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_h,
+                                    glob1 = scores.clim_c2_vs_h,
+                                    sp=scores.c2_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c2_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_p,
+                                    glob1 = scores.clim_c2_vs_p,
+                                    sp=scores.c2_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.c2_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_r,
+                                    glob1 = scores.clim_c2_vs_r,
+                                    sp=scores.c2_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+#E
+grid.clim.e_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_h,
+                                    glob1 = scores.clim_e_vs_h,
+                                    sp=scores.e_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.e_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_p,
+                                    glob1 = scores.clim_e_vs_p,
+                                    sp=scores.e_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.e_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_r,
+                                    glob1 = scores.clim_e_vs_r,
+                                    sp=scores.e_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+#H
+grid.clim.h_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_h_vs_p,
+                                    glob1 = scores.clim_h_vs_p,
+                                    sp=scores.h_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.h_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_h_vs_r,
+                                    glob1 = scores.clim_h_vs_r,
+                                    sp=scores.h_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+#P
+grid.clim.p_vs_r = ecospat.grid.clim.dyn(glob = scores.globclim_p_vs_r,
+                                    glob1 = scores.clim_p_vs_r,
+                                    sp=scores.p_vs_r_occurence, R = 100,
+                                    th.sp = 0)
+
+
+
+#gridding the right niche (gridding the invasive niche / grid.clim.inv)
+
+#C
+grid.clim.e_vs_c = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_e,
+                                    glob1 = scores.clim_e_vs_c,
+                                    sp=scores.e_vs_c_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.h_vs_c = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_h,
+                                    glob1 = scores.clim_h_vs_c,
+                                    sp=scores.h_vs_c_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.p_vs_c = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_p,
+                                    glob1 = scores.clim_p_vs_c,
+                                    sp=scores.p_vs_c_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.r_vs_c = ecospat.grid.clim.dyn(glob = scores.globclim_c_vs_r,
+                                    glob1 = scores.clim_r_vs_c,
+                                    sp=scores.r_vs_c_occurence, R = 100,
+                                    th.sp = 0)
+
+#C1
+grid.clim.c2_vs_c1 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_c2,
+                                    glob1 = scores.clim_c2_vs_c1,
+                                    sp=scores.c2_vs_c1_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.e_vs_c1 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_e,
+                                    glob1 = scores.clim_e_vs_c1,
+                                    sp=scores.e_vs_c1_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.h_vs_c1 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_h,
+                                    glob1 = scores.clim_h_vs_c1,
+                                    sp=scores.h_vs_c1_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.p_vs_c1 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_p,
+                                    glob1 = scores.clim_p_vs_c1,
+                                    sp=scores.p_vs_c1_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.r_vs_c1 = ecospat.grid.clim.dyn(glob = scores.globclim_c1_vs_r,
+                                    glob1 = scores.clim_r_vs_c1,
+                                    sp=scores.r_vs_c1_occurence, R = 100,
+                                    th.sp = 0)
+
+#C2
+grid.clim.e_vs_c2 = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_e,
+                                    glob1 = scores.clim_e_vs_c2,
+                                    sp=scores.e_vs_c2_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.h_vs_c2 = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_h,
+                                    glob1 = scores.clim_h_vs_c2,
+                                    sp=scores.h_vs_c2_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.p_vs_c2 = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_p,
+                                    glob1 = scores.clim_p_vs_c2,
+                                    sp=scores.p_vs_c2_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.r_vs_c2 = ecospat.grid.clim.dyn(glob = scores.globclim_c2_vs_r,
+                                    glob1 = scores.clim_r_vs_c2,
+                                    sp=scores.r_vs_c2_occurence, R = 100,
+                                    th.sp = 0)
+
+#E
+grid.clim.h_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_h,
+                                    glob1 = scores.clim_h_vs_e,
+                                    sp=scores.h_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.p_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_p,
+                                    glob1 = scores.clim_p_vs_e,
+                                    sp=scores.p_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.r_vs_e = ecospat.grid.clim.dyn(glob = scores.globclim_e_vs_r,
+                                    glob1 = scores.clim_r_vs_e,
+                                    sp=scores.r_vs_e_occurence, R = 100,
+                                    th.sp = 0)
+
+#H
+grid.clim.p_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_h_vs_p,
+                                    glob1 = scores.clim_p_vs_h,
+                                    sp=scores.p_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+grid.clim.r_vs_h = ecospat.grid.clim.dyn(glob = scores.globclim_h_vs_r,
+                                    glob1 = scores.clim_r_vs_h,
+                                    sp=scores.r_vs_h_occurence, R = 100,
+                                    th.sp = 0)
+
+#P
+grid.clim.r_vs_p = ecospat.grid.clim.dyn(glob = scores.globclim_p_vs_r,
+                                    glob1 = scores.clim_r_vs_p,
+                                    sp=scores.r_vs_p_occurence, R = 100,
+                                    th.sp = 0)
+
+
+##2.5.2 Calculate Niche Overlap with ecospat.niche.overlap()
+# Compute Schoener's D, index of niche overlap
+#C
+D.overlap_c_vs_e <- ecospat.niche.overlap (grid.clim.c_vs_e, grid.clim.e_vs_c, cor = TRUE)$D
+D.overlap_c_vs_h <- ecospat.niche.overlap (grid.clim.c_vs_h, grid.clim.h_vs_c, cor = TRUE)$D
+D.overlap_c_vs_p <- ecospat.niche.overlap (grid.clim.c_vs_h, grid.clim.p_vs_c, cor = TRUE)$D
+D.overlap_c_vs_r <- ecospat.niche.overlap (grid.clim.c_vs_r, grid.clim.r_vs_c, cor = TRUE)$D
+
+
+#C1
+D.overlap_c1_vs_c2 <- ecospat.niche.overlap (grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, cor = TRUE)$D
+D.overlap_c1_vs_e <- ecospat.niche.overlap (grid.clim.c1_vs_e, grid.clim.e_vs_c1, cor = TRUE)$D
+D.overlap_c1_vs_h <- ecospat.niche.overlap (grid.clim.c1_vs_h, grid.clim.h_vs_c1, cor = TRUE)$D
+D.overlap_c1_vs_p <- ecospat.niche.overlap (grid.clim.c1_vs_p, grid.clim.p_vs_c1, cor = TRUE)$D
+D.overlap_c1_vs_r <- ecospat.niche.overlap (grid.clim.c1_vs_r, grid.clim.r_vs_c1, cor = TRUE)$D
+
+#C2
+D.overlap_c2_vs_e <- ecospat.niche.overlap (grid.clim.c2_vs_e, grid.clim.e_vs_c2, cor = TRUE)$D
+D.overlap_c2_vs_h <- ecospat.niche.overlap (grid.clim.c2_vs_h, grid.clim.h_vs_c2, cor = TRUE)$D
+D.overlap_c2_vs_p <- ecospat.niche.overlap (grid.clim.c2_vs_p, grid.clim.p_vs_c2, cor = TRUE)$D
+D.overlap_c2_vs_r <- ecospat.niche.overlap (grid.clim.c2_vs_r, grid.clim.r_vs_c2, cor = TRUE)$D
+
+#E
+D.overlap_e_vs_h <- ecospat.niche.overlap (grid.clim.e_vs_h, grid.clim.h_vs_e, cor = TRUE)$D
+D.overlap_e_vs_p <- ecospat.niche.overlap (grid.clim.e_vs_p, grid.clim.p_vs_e, cor = TRUE)$D
+D.overlap_e_vs_r <- ecospat.niche.overlap (grid.clim.e_vs_r, grid.clim.r_vs_e, cor = TRUE)$D
+
+#H
+D.overlap_h_vs_p <- ecospat.niche.overlap (grid.clim.h_vs_p, grid.clim.p_vs_h, cor = TRUE)$D
+D.overlap_h_vs_r <- ecospat.niche.overlap (grid.clim.h_vs_r, grid.clim.r_vs_h, cor = TRUE)$D
+
+#P
+D.overlap_p_vs_r <- ecospat.niche.overlap (grid.clim.p_vs_r, grid.clim.r_vs_p, cor = TRUE)$D
+
+
+
+#The niche overlap between the native and the invaded range is 22%
+
+##Perform the Niche Equivalency Test with ecospat.niche.equivalency.test() according to Warren et al. (2008)
+
+#It is reccomended to use at least 1000 replications for the equivalency test. As an example we used rep
+#= 10, to reduce the computational time.
+
+### From Hedychium paper ###
+#If the calculated D fell within 5 percentile, then the niches were identified to be less similar than expected by chance
+#i.e. they have diverged, and if it fell beyond the 95 percentile, then the niches were identified to be more similar than expected
+#by chance i.e. there is niche conservatism.
+
+#For the test of similarity, occurrence densities of both the clades under comparison were randomized (rand.type = 1)
+#because we were interested in knowing whether the overall overlap between the two clades in the environmental space was significant.
+
+#C
+eq.test_c_vs_e = ecospat.niche.equivalency.test(grid.clim.c_vs_e, grid.clim.e_vs_c, rep = 1000, ncores = 16)
+eq.test_c_vs_h = ecospat.niche.equivalency.test(grid.clim.c_vs_h, grid.clim.h_vs_c, rep = 1000, ncores = 16)
+eq.test_c_vs_p = ecospat.niche.equivalency.test(grid.clim.c_vs_p, grid.clim.p_vs_c, rep = 1000, ncores = 16)
+eq.test_c_vs_r = ecospat.niche.equivalency.test(grid.clim.c_vs_r, grid.clim.r_vs_c, rep = 1000, ncores = 16)
+
+#C1
+eq.test_c1_vs_c2 = ecospat.niche.equivalency.test(grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, rep = 1000, ncores = 16)
+eq.test_c1_vs_e = ecospat.niche.equivalency.test(grid.clim.c1_vs_e, grid.clim.e_vs_c1, rep = 1000, ncores = 16)
+eq.test_c1_vs_h = ecospat.niche.equivalency.test(grid.clim.c1_vs_h, grid.clim.h_vs_c1, rep = 1000, ncores = 16)
+eq.test_c1_vs_p = ecospat.niche.equivalency.test(grid.clim.c1_vs_p, grid.clim.p_vs_c1, rep = 1000, ncores = 16)
+eq.test_c1_vs_r = ecospat.niche.equivalency.test(grid.clim.c1_vs_r, grid.clim.r_vs_c1, rep = 1000, ncores = 16)
+
+#C2
+eq.test_c2_vs_e = ecospat.niche.equivalency.test(grid.clim.c2_vs_e, grid.clim.e_vs_c2, rep = 1000, ncores = 16)
+eq.test_c2_vs_h = ecospat.niche.equivalency.test(grid.clim.c2_vs_h, grid.clim.h_vs_c2, rep = 1000, ncores = 16)
+eq.test_c2_vs_p = ecospat.niche.equivalency.test(grid.clim.c2_vs_p, grid.clim.p_vs_c2, rep = 1000, ncores = 16)
+eq.test_c2_vs_r = ecospat.niche.equivalency.test(grid.clim.c2_vs_r, grid.clim.r_vs_c2, rep = 1000, ncores = 16)
+
+#E
+eq.test_e_vs_h = ecospat.niche.equivalency.test(grid.clim.e_vs_h, grid.clim.h_vs_e, rep = 1000, ncores = 16)
+eq.test_e_vs_p = ecospat.niche.equivalency.test(grid.clim.e_vs_p, grid.clim.p_vs_e, rep = 1000, ncores = 16)
+eq.test_e_vs_r = ecospat.niche.equivalency.test(grid.clim.e_vs_r, grid.clim.r_vs_e, rep = 1000, ncores = 16)
+
+#H
+eq.test_h_vs_p = ecospat.niche.equivalency.test(grid.clim.h_vs_p, grid.clim.p_vs_h, rep = 1000, ncores = 16)
+eq.test_h_vs_r = ecospat.niche.equivalency.test(grid.clim.h_vs_r, grid.clim.r_vs_h, rep = 1000, ncores = 16)
+
+#P
+eq.test_p_vs_r = ecospat.niche.equivalency.test(grid.clim.p_vs_r, grid.clim.r_vs_p, rep = 1000, ncores = 16)
+
+
+
+
+#2.5.4 Perform the Niche Similarity Test with ecospat.niche.similarity.test()
+
+#Shifts randomly on niche (here the invasive niche) in the study area It is recomended to use at least 1000
+#replications for the similarity test. As an example we used rep = 10, to reduce the computational time.
+
+#C
+sim.test_c_vs_e <- ecospat.niche.similarity.test(grid.clim.c_vs_e, grid.clim.e_vs_c, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c_vs_h <- ecospat.niche.similarity.test(grid.clim.c_vs_h, grid.clim.h_vs_c, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c_vs_p <- ecospat.niche.similarity.test(grid.clim.c_vs_p, grid.clim.p_vs_c, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c_vs_r <- ecospat.niche.similarity.test(grid.clim.c_vs_r, grid.clim.r_vs_c, rep = 1000, rand.type = 2, ncores = 16)
+
+#C1
+sim.test_c1_vs_c2 <- ecospat.niche.similarity.test(grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c1_vs_e <- ecospat.niche.similarity.test(grid.clim.c1_vs_e, grid.clim.e_vs_c1, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c1_vs_h <- ecospat.niche.similarity.test(grid.clim.c1_vs_h, grid.clim.h_vs_c1, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c1_vs_p <- ecospat.niche.similarity.test(grid.clim.c1_vs_e, grid.clim.e_vs_c1, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c1_vs_r <- ecospat.niche.similarity.test(grid.clim.c1_vs_r, grid.clim.r_vs_c1, rep = 1000, rand.type = 2, ncores = 16)
+
+#C2
+sim.test_c2_vs_e <- ecospat.niche.similarity.test(grid.clim.c2_vs_e, grid.clim.e_vs_c2, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c2_vs_h <- ecospat.niche.similarity.test(grid.clim.c2_vs_h, grid.clim.h_vs_c2, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c2_vs_p <- ecospat.niche.similarity.test(grid.clim.c2_vs_p, grid.clim.p_vs_c2, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_c2_vs_r <- ecospat.niche.similarity.test(grid.clim.c2_vs_r, grid.clim.r_vs_c2, rep = 1000, rand.type = 2, ncores = 16)
+
+#E
+sim.test_e_vs_h <- ecospat.niche.similarity.test(grid.clim.e_vs_h, grid.clim.h_vs_e, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_e_vs_p <- ecospat.niche.similarity.test(grid.clim.e_vs_p, grid.clim.p_vs_e, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_e_vs_r <- ecospat.niche.similarity.test(grid.clim.e_vs_r, grid.clim.r_vs_e, rep = 1000, rand.type = 2, ncores = 16)
+
+#H
+sim.test_h_vs_p <- ecospat.niche.similarity.test(grid.clim.h_vs_p, grid.clim.p_vs_h, rep = 1000, rand.type = 2, ncores = 16)
+sim.test_h_vs_r <- ecospat.niche.similarity.test(grid.clim.h_vs_r, grid.clim.r_vs_h, rep = 1000, rand.type = 2, ncores = 16)
+
+#P
+sim.test_p_vs_r <- ecospat.niche.similarity.test(grid.clim.p_vs_r, grid.clim.r_vs_p, rep = 1000, rand.type = 2, ncores = 16)
+
+
+####2.5.5.1 Visualizing niche categories, niche dynamics and climate analogy between ranges with ecospat.plot.niche.dyn() Plot niche overlap
+
+#e.g, first
+#green = C1
+#pink = C2
+#blue = overlap
+
+#C
+ecospat.plot.niche.dyn(grid.clim.c_vs_e, grid.clim.e_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_h, grid.clim.h_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_p, grid.clim.p_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_r, grid.clim.r_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+
+#C1
+ecospat.plot.niche.dyn(grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs C2", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_e, grid.clim.e_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_h, grid.clim.h_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_p, grid.clim.p_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_r, grid.clim.r_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#C2
+ecospat.plot.niche.dyn(grid.clim.c2_vs_e, grid.clim.e_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.c2_vs_h, grid.clim.h_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.c2_vs_p, grid.clim.p_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.c2_vs_r, grid.clim.r_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#E
+ecospat.plot.niche.dyn(grid.clim.e_vs_h, grid.clim.h_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.e_vs_p, grid.clim.p_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.e_vs_r, grid.clim.r_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#H
+ecospat.plot.niche.dyn(grid.clim.h_vs_p, grid.clim.p_vs_h, quant=0.25, interest=2,
+                       title= "Niche Overlap H vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+ecospat.plot.niche.dyn(grid.clim.h_vs_r, grid.clim.r_vs_h, quant=0.25, interest=2,
+                       title= "Niche Overlap H vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#P
+ecospat.plot.niche.dyn(grid.clim.r_vs_r, grid.clim.r_vs_p, quant=0.25, interest=2,
+                       title= "Niche Overlap R vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+
+
+###2.5.5 Delimiting niche categories and quantifying niche dynamics in analogue climates with ecospat.niche.dyn.index()
+
+#C1
+niche.dyn_c1_vs_c2 <- ecospat.niche.dyn.index (grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, intersection = 0.1)
+niche.dyn_c1_vs_e <- ecospat.niche.dyn.index (grid.clim.c1_vs_e, grid.clim.e_vs_c1, intersection = 0.1)
+niche.dyn_c1_vs_h <- ecospat.niche.dyn.index (grid.clim.c1_vs_h, grid.clim.h_vs_c1, intersection = 0.1)
+niche.dyn_c1_vs_p <- ecospat.niche.dyn.index (grid.clim.c1_vs_p, grid.clim.p_vs_c1, intersection = 0.1)
+niche.dyn_c1_vs_r <- ecospat.niche.dyn.index (grid.clim.c1_vs_r, grid.clim.r_vs_c1, intersection = 0.1)
+
+#C2
+niche.dyn_c2_vs_e <- ecospat.niche.dyn.index (grid.clim.c2_vs_e, grid.clim.e_vs_c2, intersection = 0.1)
+niche.dyn_c2_vs_h <- ecospat.niche.dyn.index (grid.clim.c2_vs_h, grid.clim.h_vs_c2, intersection = 0.1)
+niche.dyn_c2_vs_p <- ecospat.niche.dyn.index (grid.clim.c2_vs_p, grid.clim.p_vs_c2, intersection = 0.1)
+niche.dyn_c2_vs_r <- ecospat.niche.dyn.index (grid.clim.c2_vs_r, grid.clim.r_vs_c2, intersection = 0.1)
+
+#C
+niche.dyn_c_vs_e <- ecospat.niche.dyn.index (grid.clim.c_vs_e, grid.clim.e_vs_c, intersection = 0.1)
+niche.dyn_c_vs_h <- ecospat.niche.dyn.index (grid.clim.c_vs_h, grid.clim.h_vs_c, intersection = 0.1)
+niche.dyn_c_vs_p <- ecospat.niche.dyn.index (grid.clim.c_vs_p, grid.clim.p_vs_c, intersection = 0.1)
+niche.dyn_c_vs_r <- ecospat.niche.dyn.index (grid.clim.c_vs_r, grid.clim.r_vs_c, intersection = 0.1)
+
+
+#E
+niche.dyn_e_vs_h <- ecospat.niche.dyn.index (grid.clim.e_vs_h, grid.clim.h_vs_e, intersection = 0.1)
+niche.dyn_e_vs_p <- ecospat.niche.dyn.index (grid.clim.e_vs_p, grid.clim.p_vs_e, intersection = 0.1)
+niche.dyn_e_vs_r <- ecospat.niche.dyn.index (grid.clim.e_vs_r, grid.clim.r_vs_e, intersection = 0.1)
+
+#H
+niche.dyn_h_vs_p <- ecospat.niche.dyn.index (grid.clim.h_vs_p, grid.clim.p_vs_h, intersection = 0.1)
+niche.dyn_h_vs_r <- ecospat.niche.dyn.index (grid.clim.h_vs_r, grid.clim.r_vs_h, intersection = 0.1)
+
+#P
+niche.dyn_p_vs_r <- ecospat.niche.dyn.index (grid.clim.p_vs_r, grid.clim.r_vs_p, intersection = 0.1)
+
+
+
+####2.5.5.1 Visualizing niche categories, niche dynamics and climate analogy between ranges with ecospat.plot.niche.dyn() Plot niche overlap
+
+#e.g, first
+#green = C1
+#pink = C2
+#blue = overlap
+
+#C1
+ecospat.plot.niche.dyn(grid.clim.c1_vs_c2, grid.clim.c2_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs C2", name.axis1="PC1",
+                       name.axis2="PC2")
+#ecospat.shift.centroids(scores.sp.c1, scores.sp.c2, scores.clim.c1, scores.clim.c2)
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_e, grid.clim.e_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_h, grid.clim.h_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_p, grid.clim.p_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c1_vs_r, grid.clim.r_vs_c1, quant=0.25, interest=2,
+                       title= "Niche Overlap C1 vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#C2
+ecospat.plot.niche.dyn(grid.clim.c2_vs_e, grid.clim.e_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c2_vs_h, grid.clim.h_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c2_vs_p, grid.clim.p_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c2_vs_r, grid.clim.r_vs_c2, quant=0.25, interest=2,
+                       title= "Niche Overlap C2 vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#C
+ecospat.plot.niche.dyn(grid.clim.c_vs_e, grid.clim.e_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs E", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_h, grid.clim.h_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_p, grid.clim.p_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.c_vs_r, grid.clim.r_vs_c, quant=0.25, interest=2,
+                       title= "Niche Overlap C vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+
+#E
+ecospat.plot.niche.dyn(grid.clim.e_vs_h, grid.clim.h_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs H", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.e_vs_p, grid.clim.p_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.e_vs_r, grid.clim.r_vs_e, quant=0.25, interest=2,
+                       title= "Niche Overlap E vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#H
+ecospat.plot.niche.dyn(grid.clim.h_vs_p, grid.clim.p_vs_h, quant=0.25, interest=2,
+                       title= "Niche Overlap H vs P", name.axis1="PC1",
+                       name.axis2="PC2")
+
+ecospat.plot.niche.dyn(grid.clim.h_vs_r, grid.clim.r_vs_h, quant=0.25, interest=2,
+                       title= "Niche Overlap H vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#P
+ecospat.plot.niche.dyn(grid.clim.p_vs_r, grid.clim.r_vs_p, quant=0.25, interest=2,
+                       title= "Niche Overlap P vs R", name.axis1="PC1",
+                       name.axis2="PC2")
+
+#Plot Similarity test for niche expansion, stability and unfilling
+
+ecospat.plot.overlap.test(sim.test_c1_vs_c2, "expansion", "Similarity")
+ecospat.plot.overlap.test(sim.test_c1_vs_c2, "stability", "Similarity")
+ecospat.plot.overlap.test(sim.test_c1_vs_c2, "unfilling", "Similarity")
+
+# gridding the native niche  
+grid.clim.t.c1 <- ecospat.grid.clim.dyn(glob=as.data.frame(rbind(c1_table_f,c2_table_f)[,3]),
+                                        glob1=as.data.frame(c1_table_f[,3]),
+                                        sp=as.data.frame(c1_table_f[which(c1_table_f[,32]==1),3]),
+                                        R=1000, th.sp=0)
+# gridding the invaded niche
+grid.clim.t.c2 <- ecospat.grid.clim.dyn(glob=as.data.frame(rbind(c1_table_f,c2_table_f)[,3]), #(column 3 is bio_10)
+                                         glob1=as.data.frame(c2_table_f[,3]),
+                                         sp=as.data.frame(c2_table_f[which(c2_table_f[,32]==1),3]),
+                                         R=1000, th.sp=0)
+
+
+t.dyn<-ecospat.niche.dyn.index (grid.clim.t.c1, grid.clim.t.c2,
+                                intersection=0.1)
+
+ecospat.plot.niche.dyn(grid.clim.t.c1, grid.clim.t.c2, quant=0,
+                       interest=2, title= "Niche Overlap C1 vs C2",
+                       name.axis1="Bio 10")
+
+```
+
+#GeoHiSSE
+
+```{r}
+
+#### GeoHiSSE code ####
+
+# For more information, see:
+# Caetano, D. S., O'Meara, B. C., & Beaulieu, J. M. (2018). 
+# Hidden state models improve state‐dependent diversification approaches, 
+# including biogeographical models. Evolution, 72(11), 2308-2324.
+
+library(ape)
+library(hisse)
+library(parallel)
+
+setwd('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/test_geohisse')
+
+### Import data
+tree <- read.tree('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/0_trees/2024/parental_v_r_h_ML_calibrated_2024_wo_outgroup.nwk_minBL.newick') # load tree file 
+dist <- read.table('/Users/marcosqueiroz1/Library/CloudStorage/GoogleDrive-marvin.danque@gmail.com/My Drive/PD/Biogeo/test_geohisse/curcuma_areas_high_vs_low_seasonality.txt', header = T) # load distribution file 
+
+# Preparing data - areas have to be as 0 (11 - widespread), 
+# 1 (10, endemic of first area - low seasonality) 
+# and 2 (01, endemic of second area - high seasonality)
+
+areas <- as.data.frame(rep(1, nrow(dist)))
+dist <- cbind(dist, areas)
+colnames(dist)[4] <- "area"
+
+for (i in 1:length(dist$area)){
+  if (dist[i, "high_seasonality"] == 1 && dist[i, "low_seasonality"]  == 1){
+    dist[i, "area"] = 0 
+  }
+  if (dist[i, "high_seasonality"] == 0 && dist[i, "low_seasonality"]  == 1){
+    dist[i, "area"] = 1
+  }
+  if (dist[i, "high_seasonality"] == 1 && dist[i, "low_seasonality"]  == 0){
+    dist[i, "area"] = 2
+  }
+}
+states<-dist[,c("species", "area")]
+
+table(states$area) # check if species-richness in each range make sense
+
+# 2 - high seasonality"
+# 1 - low seasonality"
+# 0 - widespread
+
+# Load sampling fraction for the group
+#sf<-c(1,1,1) # e.g. if it's fully sampled 
+sf <- c(1, 0.7, 1) #widespread 100%, low seasonality 70%, high seasonality 100%
+  
+#
+phy=tree
+dat=states
+outname='Curcuma'
+
+# We used the same 18 models of Caetano et al. (2018) (plus a second set of models including jump dispersal) - see their original publication for more information
+
+###############################################################################
+## Block of GeoSSE-like models.
+## Here extirpation is linked to range reduction.
+###############################################################################
+
+## Model 1 - Dispersal parameters vary only, no range-dependent diversification. 
+speciation <- c(1,1,1)
+extirpation <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=FALSE)
+mod1 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=FALSE, trans.rate=trans.rate,
+                      assume.cladogenetic=TRUE)
+saveRDS(mod1, file=paste0(outname, "_mod1.rds"))
+print('Model 1 is done!')
+
+
+## Model 2. Canonical GeoSSE model, range effect on diversification 
+speciation <- c(1,2,3)
+extirpation <- c(1,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=FALSE)
+mod2 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=FALSE, trans.rate=trans.rate,
+                      assume.cladogenetic=TRUE)
+saveRDS(mod2, file=paste0(outname, "_mod2.rds"))
+print('Model 2 is done!')
+
+## Model 3. Heterogeneous diversification, not tied to range evolution.
+## Assumes three distinct diversification rates.
+## Dispersion parameters across hidden areas are the same.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,2,2,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, make.null=TRUE, include.jumps=FALSE, separate.extirpation=FALSE)
+mod3 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod3, file=paste0(outname, "_mod3.rds"))
+print('Model 3 is done!')
+
+
+## Model 4. Heterogeneous diversification, tied to range evolution. 
+## Assumes 6 distinct diversification rates.
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=FALSE, separate.extirpation=FALSE)
+mod4 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod4, file=paste0(outname, "_mod4.rds"))
+print('Model 4 is done!')
+
+
+## Model 5. Heterogeneous diversification, not tied to range evolution. 
+## Assumes 5 distinct diversification rates.
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+extirpation <- c(rep(1,2), rep(2,2), rep(3,2), rep(4,2), rep(5,2))
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, make.null=TRUE, include.jumps=FALSE, separate.extirpation=FALSE)
+mod5 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod5, file=paste0(outname, "_mod5.rds"))
+print('Model 5 is done!')
+
+## Model 6. Heterogeneous diversification, not tied to range evolution. 
+## Assumes two distinct diversification rates.
+speciation <- c(1,1,1,2,2,2)
+extirpation <- c(1,1,2,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, make.null=TRUE, include.jumps=FALSE, separate.extirpation=FALSE)
+mod6 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                 hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod6, file=paste0(outname, "_mod6.rds"))
+print('Model 6 is done!')
+
+
+###############################################################################
+## Block of cladogenetic models not GeoSSE-like.
+## Here extirpation is NOT linked to range reduction.
+## So range reduction is different from the extinction of an endemic lineage.
+## Jumps between endemic areas are not allowed.
+###############################################################################
+
+## Model 7 - Dispersal parameters vary only, no range-dependent diversification. 
+speciation <- c(1,1,1)
+extirpation <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=TRUE)
+mod7 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                 hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod7, file=paste0(outname, "_mod7.rds"))
+print('Model 7 is done!')
+     
+## Model 8. GeoSSE model, with range effect on diversification turnover <- c(1,2,3)
+speciation <- c(1,2,3)
+extirpation <- c(1,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=TRUE)
+mod8 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                 hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod8, file=paste0(outname, "_mod8.rds"))
+print('Model 8 is done!')
+        
+
+## Model 9. Heterogeneous diversification, not tied to range evolution.
+## Assumes three distinct diversification rates.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,2,2,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, make.null=TRUE, include.jumps=FALSE, separate.extirpation=TRUE)
+mod9 <- try( GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                      hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE) )
+saveRDS(mod9, file=paste0(outname, "_mod9.rds"))
+print('Model 9 is done!')
+
+## Model 10. Heterogeneous diversification, tied to range evolution.
+## Assumes 6 distinct diversification rates.
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=FALSE, separate.extirpation=TRUE)
+mod10 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                       hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod10, file=paste0(outname, "_mod10.rds"))
+print('Model 10 is done!')
+
+## Model 11. Heterogeneous diversification, not tied to range evolution. 
+## Assumes 5 distinct diversification rates.
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+extirpation <- c(rep(1,2), rep(2,2), rep(3,2), rep(4,2), rep(5,2))
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, make.null=TRUE, include.jumps=FALSE, separate.extirpation=TRUE)
+mod11 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                       hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod11, file=paste0(outname, "_mod11.rds"))
+print('Model 11 is done!')
+        
+
+## Model 12. Heterogeneous diversification, not tied to range evolution. 
+## Assumes two distinct diversification rates.
+speciation <- c(1,1,1,2,2,2)
+extirpation <- c(1,1,2,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, make.null=TRUE, include.jumps=FALSE, separate.extirpation=TRUE)
+mod12 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod12, file=paste0(outname, "_mod12.rds"))
+print('Model 12 is done!')
+  
+
+###############################################################################
+## Block of anagenetic geographic models (MuSSE).
+## Here models emulate GeoSSE (or GeoHiSSE) but changes only happen along branches.
+###############################################################################
+## Model 13. Transitions only. No character effect on diversification
+speciation <- c(1,1,1)
+extirpation <- c(1,1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=TRUE)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod13 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod13, file=paste0(outname, "_mod13.rds"))
+print('Model 13 is done!')
+
+## Model 14. Character effect on diversification.
+speciation <- c(1,2,3)
+extirpation <- c(1,2,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=FALSE, separate.extirpation=TRUE)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod14 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate.mod, assume.cladogenetic=FALSE)
+saveRDS(mod14, file=paste0(outname, "_mod14.rds"))
+print('Model 14 is done!')
+        
+## Model 15. No character effect on diversification.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,1,2,2,2,3,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, include.jumps=FALSE, separate.extirpation=TRUE, make.null=TRUE)
+mod15 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation, 
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod15, file=paste0(outname, "_mod15.rds"))
+print('Model 15 is done!')
+
+## Model 16. Character effect on diversification, with a hidden state
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4,5,6)
+trans.rate <- trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=FALSE, separate.extirpation=TRUE)
+mod16 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation, hidden.states=TRUE,
+                  trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod16, file=paste0(outname, "_mod16.rds"))
+print('Model 16 is done!')
+
+
+## Model 17. No character effect on diversification, multiple shifts
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+extirpation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+trans.rate <- trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, include.jumps=FALSE, separate.extirpation=TRUE, make.null=TRUE)
+mod17 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation, hidden.states=TRUE,
+                  trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod17, file=paste0(outname, "_mod17.rds"))
+print('Model 17 is done!')
+   
+
+## Model 18. No character effect on diversification, multiple shifts.
+speciation <- c(rep(1,3), rep(2,3))
+extirpation <- c(rep(1,3), rep(2,3))
+trans.rate <- trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=FALSE, separate.extirpation=TRUE, make.null=TRUE)
+mod18 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation, hidden.states=TRUE,
+                  trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod18, file=paste0(outname, "_mod18.rds"))
+print('Model 18 is done!')
+     
+
+#################### JUMP MODELS ##########################
+#################### JUMP MODELS ##########################
+#################### JUMP MODELS ##########################
+#################### JUMP MODELS ##########################
+#################### JUMP MODELS ##########################
+
+## argument "include.jumps" set to TRUE
+
+###############################################################################
+## Block of GeoSSE-like models.
+## Here extirpation is linked to range reduction.
+###############################################################################
+## Model 19 - Dispersal parameters vary only, no range-dependent diversification. 
+speciation <- c(1,1,1)
+extirpation <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE 
+                                    , separate.extirpation=FALSE) 
+mod19 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=TRUE) 
+saveRDS(mod19, file=paste0(outname, "_mod19.rds"))
+print('Model 19 is done!')
+
+## Model 20. Canonical GeoSSE model, range effect on diversification 
+speciation <- c(1,2,3)
+extirpation <- c(1,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE
+                                    , separate.extirpation=FALSE) 
+mod20 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod20, file=paste0(outname, "_mod20.rds"))
+print('Model 20 is done!')
+
+## Model 21. Heterogeneous diversification, not tied to range evolution.
+## Assumes three distinct diversification rates.
+## Dispersion parameters across hidden areas are the same.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,2,2,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, make.null=TRUE
+                                    , include.jumps=TRUE, separate.extirpation=FALSE) 
+mod21 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod21, file=paste0(outname, "_mod21.rds"))
+print('Model 21 is done!')
+
+
+## Model 22. Heterogeneous diversification, tied to range evolution. 
+## Assumes 6 distinct diversification rates.
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE , 
+                                    separate.extirpation=FALSE)
+mod22 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation,
+                  eps=extirpation, hidden.states=TRUE, 
+                  trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod22, file=paste0(outname, "_mod22.rds"))
+print('Model 22 is done!')
+
+
+## Model 23. Heterogeneous diversification, not tied to range evolution. 
+## Assumes 5 distinct diversification rates.
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3)) 
+extirpation <- c(rep(1,2), rep(2,2), rep(3,2), rep(4,2), rep(5,2)) 
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, make.null=TRUE, 
+                                    include.jumps=TRUE, separate.extirpation=FALSE) 
+mod23 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod23, file=paste0(outname, "_mod23.rds"))
+print('Model 23 is done!')
+
+
+## Model 24. Heterogeneous diversification, not tied to range evolution. 
+## Assumes two distinct diversification rates.
+speciation <- c(1,1,1,2,2,2)
+extirpation <- c(1,1,2,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE , 
+                                    separate.extirpation=FALSE)
+mod24 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation
+                  , eps=extirpation, hidden.states=TRUE
+                  , trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod24, file=paste0(outname, "_mod24.rds"))
+print('Model 24 is done!')
+
+
+###############################################################################
+## Block of GeoSSE+extinction models.
+## Here extirpation is NOT linked to range reduction.
+## Range reduction is different from the extinction of an endemic lineage.
+###############################################################################
+## Model 25 - Dispersal parameters vary only, no range-dependent diversification. 
+speciation <- c(1,1,1)
+extirpation <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE
+                                    , separate.extirpation=TRUE) 
+mod25 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=FALSE , trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod25, file=paste0(outname, "_mod25.rds"))
+print('Model 25 is done!')
+
+## Model 26. GeoSSE model, with range effect on diversification speciation <- c(1,2,3)
+extirpation <- c(1,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE
+                                    , separate.extirpation=TRUE) 
+mod26 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod26, file=paste0(outname, "_mod26.rds"))
+print('Model 26 is done!')
+
+## Model 27. Heterogeneous diversification, not tied to range evolution.
+## Assumes three distinct diversification rates.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,2,2,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, make.null=TRUE,include.jumps=TRUE,
+                                    separate.extirpation=TRUE)
+mod27 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod27, file=paste0(outname, "_mod27.rds"))
+print('Model 27 is done!')
+
+## Model 28. Heterogeneous diversification, tied to range evolution.
+## Assumes 6 distinct diversification rates.
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE, 
+                                    separate.extirpation=TRUE) 
+mod28 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod28, file=paste0(outname, "_mod28.rds"))
+print('Model 28 is done!')
+
+## Model 29. Heterogeneous diversification, not tied to range evolution. 
+## Assumes 5 distinct diversification rates.
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3)) 
+extirpation <- c(rep(1,2), rep(2,2), rep(3,2), rep(4,2), rep(5,2)) 
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, make.null=TRUE, include.jumps=TRUE,
+                                    separate.extirpation=TRUE) 
+mod29 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod29, file=paste0(outname, "_mod29.rds"))
+print('Model 29 is done!')
+
+## Model 30. Heterogeneous diversification, not tied to range evolution. 
+## Assumes two distinct diversification rates.
+speciation <- c(1,1,1,2,2,2)
+extirpation <- c(1,1,2,2)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE , 
+                                    separate.extirpation=TRUE)
+mod30 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=TRUE)
+saveRDS(mod30, file=paste0(outname, "_mod30.rds"))
+print('Model 30 is done!')
+
+###############################################################################
+## Block of anagenetic geographic models (MuSSE).
+## Here models emulate GeoSSE (or GeoHiSSE) but changes only happen along branches.
+###############################################################################
+## Model 31. Transitions only. No character effect on diversification
+speciation <- c(1,1,1)
+extirpation <- c(1,1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE
+                                    , separate.extirpation=TRUE) 
+mod31 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, 
+                  eps=extirpation, hidden.states=FALSE, trans.rate=trans.rate, 
+                  assume.cladogenetic=FALSE)
+saveRDS(mod31, file=paste0(outname, "_mod31.rds"))
+print('Model 31 is done!')
+
+## Model 32. Character effect on diversification.
+speciation <- c(1,2,3)
+extirpation <- c(1,2,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0, include.jumps=TRUE
+                                    , separate.extirpation=TRUE) 
+mod32 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation , eps=extirpation,
+                  hidden.states=FALSE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod32, file=paste0(outname, "_mod32.rds"))
+print('Model 32 is done!')
+
+## Model 33. No character effect on diversification.
+speciation <- c(1,1,1,2,2,2,3,3,3)
+extirpation <- c(1,1,1,2,2,2,3,3,3)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=2, include.jumps=TRUE
+                                    , separate.extirpation=TRUE, make.null=TRUE) 
+mod33 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod33, file=paste0(outname, "_mod33.rds"))
+print('Model 33 is done!')
+
+## Model 34. Character effect on diversification, with a hidden state
+speciation <- c(1,2,3,4,5,6)
+extirpation <- c(1,2,3,4,5,6)
+trans.rate <- trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE
+                                                  , separate.extirpation=TRUE)
+mod34 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod34, file=paste0(outname, "_mod34.rds"))
+print('Model 34 is done!')
+
+## Model 35. No character effect on diversification, multiple shifts
+speciation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+extirpation <- c(rep(1,3), rep(2,3), rep(3,3), rep(4,3), rep(5,3))
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=4, include.jumps=TRUE,
+                                    separate.extirpation=TRUE, make.null=TRUE) 
+mod35 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation,
+                  hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod35, file=paste0(outname, "_mod35.rds"))
+print('Model 35 is done!')
+
+## Model 36. No character effect on diversification, multiple shifts.
+speciation <- c(rep(1,3), rep(2,3))
+extirpation <- c(rep(1,3), rep(2,3))
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, include.jumps=TRUE, 
+                                    separate.extirpation=TRUE, make.null=TRUE)
+mod36 <- GeoHiSSE(phy, dat, f=sf, turnover=speciation, eps=extirpation
+                  , hidden.states=TRUE, trans.rate=trans.rate, assume.cladogenetic=FALSE)
+saveRDS(mod36, file=paste0(outname, "_mod36.rds"))
+print('Model 36 is done!')
+
+
+##########################################################################################
+############################## aics ######################################################
+##########################################################################################
+
+##### extracting aics #######
+list.geohisse <- list(model1 = mod1, 
+                      model2 = mod2, 
+                      model3 = mod3, 
+                      model4 = mod4, 
+                      model5 = mod5,
+                      model6 = mod6, 
+                      model7 = mod7, 
+                      model8 = mod8, 
+                      model9 = mod9, 
+                      model10 = mod10, 
+                      model11 = mod11, 
+                      model12 = mod12, 
+                      model13 = mod13,
+                      model14 = mod14, 
+                      model15 = mod15, 
+                      model16 = mod16, 
+                      model17 = mod17,
+                      model18 = mod18, 
+                      model19 = mod19, 
+                      model20 = mod20, 
+                      model21 = mod21, 
+                      model22 = mod22, 
+                      model23 = mod23,
+                      model24 = mod24,
+                      model25 = mod25, 
+                      model26 = mod26, 
+                      model27 = mod27, 
+                      model28 = mod28, 
+                      model29 = mod29, 
+                      model30 = mod30, 
+                      model31 = mod31,
+                      model32 = mod32, 
+                      model33 = mod33, 
+                      model34 = mod34, 
+                      model35 = mod35,
+                      model36 = mod36) 
+
+
+saveRDS(list.geohisse, file=paste(group, "GeoHiSSE.models", ".RData", sep="_"))
+
+
+
+
+```
+
